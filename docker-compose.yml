@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  whisper-stt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: whisper-stt-service
+    restart: unless-stopped
+
+    # Accès aux périphériques audio (Linux)
+    # Sur Windows avec WSL2, ces options peuvent ne pas fonctionner
+    devices:
+      - /dev/snd:/dev/snd
+
+    # Variables d'environnement
+    environment:
+      - PULSE_SERVER=unix:/run/user/1000/pulse/native
+      - DISPLAY=${DISPLAY:-:0}
+      - WHISPER_CACHE_DIR=/app/.cache/whisper
+      - PYTHONUNBUFFERED=1
+
+    # Volumes pour la configuration et le cache
+    volumes:
+      - ./config.json:/app/config.json:rw
+      - whisper-cache:/app/.cache/whisper
+      - ./logs:/app/logs
+
+    # Accès réseau (si nécessaire)
+    network_mode: host
+
+    # Limites de ressources (ajustez selon votre matériel)
+    deploy:
+      resources:
+        limits:
+          memory: 12G
+          cpus: '4.0'
+        reservations:
+          memory: 8G
+          cpus: '2.0'
+
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    # TTY et stdin pour l'interactivité
+    stdin_open: true
+    tty: true
+
+volumes:
+  whisper-cache:
+    driver: local

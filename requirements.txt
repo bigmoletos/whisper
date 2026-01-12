@@ -1,0 +1,16 @@
+# Whisper et traitement audio
+openai-whisper>=20231117
+faster-whisper>=0.10.0  # Optionnel - nécessite Rust pour l'installation
+torch>=2.0.0
+numpy>=1.24.0
+sounddevice>=0.4.6
+scipy>=1.10.0
+
+# Injection de texte et contrôle système
+pyautogui>=0.9.54
+pywin32>=306; sys_platform == 'win32'
+keyboard>=0.13.5
+pyperclip>=1.8.2
+
+# Utilitaires
+python-dotenv>=1.0.0
