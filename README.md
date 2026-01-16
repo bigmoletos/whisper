@@ -15,14 +15,33 @@ Ce service permet de transcrire votre voix en texte et d'injecter automatiquemen
 - **Injection automatique** : Le texte transcrit est automatiquement inséré dans le champ actif
 - **100% local** : Aucune donnée n'est envoyée en ligne, tout est traité localement
 - **Temps réel avec Faster-Whisper** : Latence < 1 seconde avec Faster-Whisper (nécessite Rust)
+- **⚡ Ultra-rapide avec Whisper.cpp** : Latence < 0.5 seconde avec Whisper.cpp (implémentation C++)
+- **🔔 Notifications visuelles** : Pop-ups et notifications pour indiquer l'état du service (enregistrement, traitement, prêt, erreurs)
+- **📋 Feedback utilisateur** : L'utilisateur sait exactement ce qui se passe à chaque étape
+- **🎯 Interface plus intuitive** : Plus besoin de deviner si l'application fonctionne
 
 ## Prérequis
 
 ### Logiciels requis
 
-1. **Python 3.10 ou supérieur**
+1. **Python 3.11 ou 3.12 (recommandé)** ou **Python 3.10 (minimum)**
+   - **Version recommandée** : Python 3.11.4 ou 3.12.0
+   - **Version minimale** : Python 3.10.0
+   - **À éviter** : Python 3.14+ (problèmes de compatibilité avec faster-whisper)
    - Téléchargement : https://www.python.org/downloads/
    - Assurez-vous de cocher "Add Python to PATH" lors de l'installation
+   
+   **Méthodes d'installation** :
+   ```bash
+   # Via winget (recommandé pour Windows)
+   winget install Python.Python.3.11
+   
+   # Via Microsoft Store
+   Recherchez "Python 3.11" dans le Microsoft Store
+   
+   # Via chocolatey
+   choco install python --version=3.11.4
+   ```
 
 2. **ffmpeg**
    - Téléchargement : https://ffmpeg.org/download.html
@@ -42,6 +61,47 @@ Ce service permet de transcrire votre voix en texte et d'injecter automatiquemen
 - **GPU** (optionnel) : GPU NVIDIA avec CUDA pour accélérer la transcription (le CPU fonctionne aussi)
 - **Microphone** : Microphone fonctionnel configuré dans Windows
 
+## Notifications et Feedback Utilisateur
+
+L'application inclut maintenant un système complet de notifications visuelles pour améliorer l'expérience utilisateur :
+
+### Types de notifications
+
+1. **🎤 Enregistrement en cours** : Apparaît lorsque vous commencez à enregistrer (Ctrl+Alt+7)
+   - Indique que le microphone est actif
+   - Rappelle le raccourci pour arrêter
+
+2. **⏳ Traitement en cours** : Apparaît pendant la transcription
+   - Indique que Whisper est en train de transcrire votre audio
+   - Montre que l'application travaille
+
+3. **✅ Texte prêt** : Apparaît lorsque la transcription est terminée
+   - Affiche le texte transcrit
+   - Indique que le texte est prêt à être injecté
+
+4. **❌ Erreurs** : Apparaît en cas de problème
+   - Affiche des messages d'erreur clairs
+   - Aide au diagnostic des problèmes
+
+5. **ℹ️ Informations** : Notifications générales
+   - État du service (démarrage, arrêt)
+   - Conseils d'utilisation
+
+### Exemple de workflow avec notifications
+
+1. **Démarrage** → Notification "Service démarré"
+2. **Ctrl+Alt+7** → Notification "Enregistrement en cours 🎤"
+3. **Relâcher Ctrl+Alt+7** → Notification "Traitement en cours ⏳"
+4. **Transcription terminée** → Notification "Texte prêt ✅"
+5. **Texte injecté** → Le texte apparaît dans votre application
+
+### Désactivation des notifications
+
+Si les notifications sont trop intrusives, vous pouvez :
+- Modifier le code dans `src/notifications.py`
+- Commenter les appels aux notifications dans `src/main.py`
+- Utiliser le mode silencieux (à implémenter)
+
 ## Installation
 
 ### Étape 1 : Cloner ou télécharger le projet
@@ -52,13 +112,31 @@ cd C:\programmation\whisper_local_STT
 
 ### Étape 2 : Exécuter le script d'installation
 
+#### Nouvelle méthode recommandée (avec notifications)
+
+Double-cliquez sur `run_whisper.bat` ou exécutez dans un terminal :
+
+```bash
+run_whisper.bat
+```
+
+Ce script amélioré :
+- Vérifie que Python est installé
+- Utilise **pipx** (si disponible) ou **pip** pour les installations
+- Installe automatiquement les dépendances manquantes
+- Configure correctement l'environnement
+- Lance l'application avec le système de notifications
+- Affiche des messages clairs à chaque étape
+
+#### Méthode originale (sans notifications)
+
 Double-cliquez sur `scripts\install.bat` ou exécutez dans un terminal :
 
 ```bash
 scripts\install.bat
 ```
 
-Le script va :
+Le script original va :
 - Vérifier que Python est installé
 - Mettre à jour pip
 - Vérifier la présence de ffmpeg
@@ -71,6 +149,223 @@ Assurez-vous que tous les modules sont installés :
 ```bash
 python -c "import whisper; import sounddevice; import pyautogui; import keyboard; print('OK')"
 ```
+
+## Dernières Modifications et Mises à Jour
+
+### Version 2.1 - Système de Notifications (📅 15/01/2026)
+
+**Nouveautés :**
+- ✨ **Système de notifications complet** : Pop-ups visuels pour toutes les étapes
+- 🔔 **Notifications d'état** : Enregistrement, traitement, prêt, erreurs
+- 🎯 **Meilleure expérience utilisateur** : Feedback clair à chaque étape
+- 📋 **Notifications balloon** : Moins intrusives que les MessageBox
+- 🔧 **Script de lancement amélioré** : `run_whisper.bat` avec gestion automatique
+
+**Fichiers modifiés :**
+- `src/main.py` - Ajout des appels aux notifications
+- `src/notifications.py` - Nouveau module de gestion des notifications
+- `run_whisper.bat` - Nouveau script de lancement avec pipx
+- `README.md` - Documentation mise à jour
+
+**Fichiers ajoutés :**
+- `src/notifications.py` - Module complet de notifications
+- `run_whisper.bat` - Script de lancement amélioré
+- `test_notifications.py` - Script de test des notifications
+
+**Améliorations techniques :**
+- Utilisation de `pipx` pour les installations (meilleure pratique)
+- Gestion des erreurs améliorée avec notifications
+- Threads séparés pour les notifications (non-bloquantes)
+- Support des notifications Windows 10 (win10toast)
+- Fallback sur MessageBox si win10toast non disponible
+
+### Version 2.0 - Faster-Whisper (📅 10/01/2026)
+
+**Nouveautés :**
+- ⚡ **Faster-Whisper** : Transcription 2-4x plus rapide
+- 🎯 **Configuration flexible** : Choix entre Whisper standard et Faster-Whisper
+- 📊 **Meilleures performances** : Latence réduite pour le temps réel
+
+## Dépannage et Solutions
+
+### Problèmes de version de Python
+
+**Symptômes** : Erreurs de compilation, problèmes avec `faster-whisper`, messages "version incompatible"
+
+**Solutions** :
+
+#### 1. Vérifier votre version de Python
+```bash
+python --version
+# Ou pour voir toutes les versions disponibles
+py --list
+```
+
+#### 2. Utiliser une version spécifique de Python
+Si vous avez plusieurs versions installées :
+```bash
+# Pour Python 3.11
+py -3.11 run_whisper.bat
+
+# Pour Python 3.12
+py -3.12 run_whisper.bat
+```
+
+#### 3. Installer la bonne version de Python
+```bash
+# Via winget (recommandé)
+winget install Python.Python.3.11
+
+# Via le site officiel
+# Téléchargez depuis https://www.python.org/downloads/
+```
+
+#### 4. Problèmes spécifiques à Python 3.14+
+Si vous devez utiliser Python 3.14+ :
+```bash
+# Solution 1: Utiliser Whisper standard au lieu de Faster-Whisper
+# Modifiez config.json:
+{
+  "whisper": {
+    "engine": "whisper",  // Au lieu de "faster-whisper"
+    "model": "medium",
+    "language": "fr",
+    "device": "cpu"
+  }
+}
+
+# Solution 2: Installer avec des options spécifiques
+pip install faster-whisper --no-build-isolation
+
+# Solution 3: Installer une version spécifique
+pip install faster-whisper==1.2.1
+```
+
+### Problèmes d'installation de faster-whisper
+
+Si vous rencontrez des erreurs lors de l'installation de `faster-whisper`, voici plusieurs solutions :
+
+#### 1. Problème de compilation avec Python 3.14
+
+**Symptômes** : Erreurs de compilation Cython, problèmes avec `av`
+
+**Solutions** :
+```bash
+# Solution 1: Utiliser Python 3.11 ou 3.12 (recommandé)
+py -3.11 run_whisper.bat
+
+# Solution 2: Installer avec --no-build-isolation
+pip install faster-whisper --no-build-isolation
+
+# Solution 3: Installer une version spécifique
+pip install faster-whisper==1.2.1
+```
+
+#### 2. Utiliser Whisper standard à la place
+
+Modifiez votre `config.json` :
+```json
+{
+  "whisper": {
+    "engine": "whisper",  // Au lieu de "faster-whisper"
+    "model": "medium",
+    "language": "fr",
+    "device": "cpu"
+  }
+}
+```
+
+#### 3. Installer avec conda
+
+Si vous avez conda/anaconda :
+```bash
+conda install -c conda-forge faster-whisper
+```
+
+#### 4. Installer manuellement les dépendances
+
+```bash
+# Installer les dépendances de base d'abord
+pip install sounddevice numpy win10toast pywin32 pynput
+
+# Puis essayer faster-whisper avec des options spécifiques
+pip install --only-binary :all: faster-whisper
+```
+
+### Problèmes de microphone
+
+**Symptômes** : "Aucun audio capturé", "Module de capture audio non initialisé"
+
+**Solutions** :
+1. Vérifiez que votre microphone est bien connecté
+2. Allez dans Paramètres Windows > Système > Son
+3. Vérifiez que le bon microphone est sélectionné
+4. Testez avec l'application "Enregistreur vocal" de Windows
+5. Redémarrez votre ordinateur
+
+### Installation de Whisper.cpp
+
+**Pour installer Whisper.cpp pour des performances optimales** :
+
+#### Méthode 1: Installation via pip (recommandée)
+```bash
+pip install whisper-cpp-python
+```
+
+#### Méthode 2: Installation depuis les sources
+```bash
+# Cloner le dépôt
+git clone https://github.com/ggerganov/whisper.cpp.git
+cd whisper.cpp
+
+# Télécharger le modèle GGML (par exemple medium)
+./download-ggml-model.sh medium
+
+# Construire le projet
+mkdir build && cd build
+cmake .. -DWHISPER_CUDA=ON  # Si vous avez un GPU NVIDIA
+make -j
+
+# Installer le package Python
+pip install .
+```
+
+#### Méthode 3: Utiliser les modèles pré-compilés
+```bash
+# Télécharger un modèle GGML pré-compilé
+wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin
+
+# Placer dans le répertoire des modèles
+mkdir -p ~/.cache/whisper.cpp/models
+mv ggml-medium.bin ~/.cache/whisper.cpp/models/
+```
+
+#### Configuration pour Whisper.cpp
+```json
+{
+  "whisper": {
+    "engine": "whisper-cpp",
+    "model": "medium",
+    "language": "fr",
+    "device": "cpu"
+  }
+}
+```
+
+### Problèmes de raccourcis clavier
+
+**Symptômes** : Le raccourci Ctrl+Alt+7 ne fonctionne pas
+
+**Solutions** :
+1. Vérifiez qu'aucun autre programme n'utilise ce raccourci
+2. Modifiez le raccourci dans `config.json` :
+```json
+"hotkey": {
+  "modifiers": ["ctrl", "alt"],
+  "key": "space"
+}
+```
+3. Redémarrez l'application
 
 ## Configuration
 
@@ -97,9 +392,38 @@ Le fichier `config.json` contient toutes les options de configuration :
   "logging": {
     "level": "INFO",          // DEBUG, INFO, WARNING, ERROR
     "file": "whisper_stt.log" // Fichier de log (optionnel)
+  },
+  "notifications": {
+    "enabled": true,           // Active/désactive les notifications
+    "type": "balloon",        // "balloon" ou "popup" ou "both"
+    "show_recording": true,    // Notification d'enregistrement
+    "show_processing": true,   // Notification de traitement
+    "show_ready": true,        // Notification de texte prêt
+    "show_errors": true        // Notification d'erreurs
   }
 }
 ```
+
+> **Note** : La section `notifications` est optionnelle. Par défaut, toutes les notifications sont activées.
+
+### Moteurs de Transcription
+
+Le projet supporte plusieurs moteurs de transcription, par ordre de performance :
+
+1. **whisper-cpp** : Implémentation C++ (le plus rapide, ~0.2-0.5s de latence)
+   - Nécessite `whisper-cpp-python`
+   - Modèles GGML optimisés
+   - Support GPU via CUDA
+
+2. **faster-whisper** : Implémentation Python optimisée (~0.5-2s de latence)
+   - Nécessite Rust pour l'installation
+   - Support multi-thread
+   - Quantification int8
+
+3. **whisper** : Implémentation Python standard (~2-5s de latence)
+   - Le plus stable
+   - Moins de dépendances
+   - Bonne précision
 
 ### Modèles Whisper
 

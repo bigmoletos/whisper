@@ -37,6 +37,13 @@ try:
 except ImportError:
     FASTER_WHISPER_AVAILABLE = False
 
+# Import conditionnel de Whisper.cpp
+try:
+    from src.whisper_cpp_transcriber import WhisperCppTranscriber
+    WHISPER_CPP_AVAILABLE = True
+except ImportError:
+    WHISPER_CPP_AVAILABLE = False
+
 # Configuration du logging
 def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None):
     """
@@ -144,7 +151,7 @@ class WhisperSTTService:
         """Retourne la configuration par défaut"""
         return {
             "whisper": {
-                "engine": "faster-whisper",
+                "engine": "whisper-cpp",  # Le plus rapide si disponible
                 "model": "medium",
                 "language": "fr",
                 "device": "cpu",
@@ -184,6 +191,27 @@ class WhisperSTTService:
             # Configuration Whisper
             whisper_config = self.config.get("whisper", {})
             engine = whisper_config.get("engine", "whisper")  # "whisper" ou "faster-whisper"
+
+            if engine == "whisper-cpp":
+                if not WHISPER_CPP_AVAILABLE:
+                    self.logger.warning("Whisper.cpp non disponible, tentative avec Faster-Whisper")
+                    engine = "faster-whisper"
+                else:
+                    try:
+                        # Utiliser Whisper.cpp (le plus rapide)
+                        model_name = whisper_config.get("model", "medium")
+
+                        self.transcriber = WhisperCppTranscriber(
+                            model_name=model_name,
+                            language=whisper_config.get("language", "fr"),
+                            device=whisper_config.get("device", "cpu"),
+                            compute_type=whisper_config.get("compute_type", "int8")
+                        )
+                        self.logger.info("Module Whisper.cpp initialisé (moteur ultra-rapide)")
+                    except Exception as e:
+                        self.logger.error(f"Erreur lors de l'initialisation de Whisper.cpp: {e}")
+                        self.logger.warning("Basculement vers Faster-Whisper")
+                        engine = "faster-whisper"
 
             if engine == "faster-whisper":
                 if not FASTER_WHISPER_AVAILABLE:

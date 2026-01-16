@@ -15,6 +15,16 @@ pip install --user -r requirements.txt
 C:\Python311\python.exe -m pip install --upgrade --user pip ; python -m venv venv --without-pip ; .\venv\Scripts\Activate.ps1 ; pip install --user -r requirements.txt
 ```
 
+### Installation avec pipx (recommandé)
+```powershell
+# Installer pipx d'abord
+python -m pip install --user pipx
+python -m pipx ensurepath
+
+# Installer les packages avec pipx
+pipx install sounddevice numpy faster-whisper win10toast pywin32 pynput
+```
+
 ---
 
 ## Jupyter & Notebooks
@@ -36,6 +46,57 @@ jupyter kernelspec list
 ```
 
 ---
+
+## Commandes Whisper STT
+
+### Lancer l'application avec notifications
+```batch
+# Méthode recommandée - utilise run_whisper.bat
+run_whisper.bat
+
+# Ou depuis la ligne de commande
+python run_whisper.bat
+```
+
+### Lancer l'application standard
+```batch
+# Méthode originale
+python -m src.main
+
+# Ou avec configuration du chemin
+set PYTHONPATH=src;%PYTHONPATH%
+python -m src.main
+```
+
+### Tester les notifications
+```python
+# Tester le système de notifications
+python test_notifications.py
+
+# Tester une notification spécifique
+python -c "from src.notifications import NotificationManager; notif = NotificationManager(); notif.show_status_notification('running', 'Test')"
+```
+
+### Vérifier les dépendances
+```python
+# Vérifier que toutes les dépendances sont installées
+python -c "
+import sounddevice, numpy, faster_whisper, win10toast, pywin32, pynput
+print('✓ Toutes les dépendances sont installées')
+"
+```
+
+### Lancer avec différents modèles
+```python
+# Modifier temporairement le modèle (dans le code)
+python -c "
+import json
+config = json.load(open('config.json'))
+config['whisper']['model'] = 'medium'  # ou 'small', 'large', etc.
+json.dump(config, open('config.json', 'w'), indent=2)
+print('Modèle changé pour:', config['whisper']['model'])
+"
+```
 
 ## Commandes Python Utiles (IA)
 
