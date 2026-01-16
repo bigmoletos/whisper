@@ -22,6 +22,14 @@ from src.whisper_transcriber import WhisperTranscriber
 from src.text_injector import TextInjector
 from src.keyboard_hotkey import HotkeyManager
 
+# Import des notifications
+try:
+    from src.notifications import NotificationManager
+    NOTIFICATIONS_AVAILABLE = True
+except ImportError:
+    NOTIFICATIONS_AVAILABLE = False
+    print("Module de notifications non disponible")
+
 # Import conditionnel de Faster-Whisper
 try:
     from src.faster_whisper_transcriber import FasterWhisperTranscriber
@@ -99,6 +107,7 @@ class WhisperSTTService:
         self.transcriber: Optional[WhisperTranscriber] = None
         self.text_injector: Optional[TextInjector] = None
         self.hotkey_manager: Optional[HotkeyManager] = None
+        self.notification_manager: Optional[NotificationManager] = None
 
         # État
         self.is_recording = False
@@ -225,6 +234,13 @@ class WhisperSTTService:
             self.hotkey_manager = HotkeyManager()
             self.logger.info("Gestionnaire de raccourcis initialisé")
 
+            # Gestionnaire de notifications
+            if NOTIFICATIONS_AVAILABLE:
+                self.notification_manager = NotificationManager()
+                self.logger.info("Gestionnaire de notifications initialisé")
+            else:
+                self.logger.warning("Module de notifications non disponible")
+
         except Exception as e:
             self.logger.error(f"Erreur lors de l'initialisation des composants: {e}", exc_info=True)
             raise
@@ -251,8 +267,14 @@ class WhisperSTTService:
                 self.audio_capture.start_recording()
                 self.is_recording = True
                 self.logger.info("Enregistrement démarré (relâchez le raccourci pour arrêter)")
+                
+                # Afficher une notification d'enregistrement
+                if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                    self.notification_manager.show_status_notification("recording")
         except Exception as e:
             self.logger.error(f"Erreur lors du démarrage de l'enregistrement: {e}", exc_info=True)
+            if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                self.notification_manager.show_status_notification("error", str(e))
             self.is_recording = False
 
     def _process_recording(self) -> None:
@@ -263,22 +285,32 @@ class WhisperSTTService:
         self.is_processing = True
         self.is_recording = False
 
+        # Afficher une notification de traitement
+        if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+            self.notification_manager.show_status_notification("processing")
+
         try:
             # Arrêter l'enregistrement et récupérer l'audio
             if not self.audio_capture:
                 self.logger.error("Module de capture audio non initialisé")
+                if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                    self.notification_manager.show_status_notification("error", "Module de capture audio non initialisé")
                 return
 
             audio_data = self.audio_capture.stop_recording()
 
             if len(audio_data) == 0:
                 self.logger.warning("Aucun audio capturé")
+                if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                    self.notification_manager.show_status_notification("error", "Aucun audio capturé")
                 self.is_processing = False
                 return
 
             # Transcrire avec Whisper
             if not self.transcriber:
                 self.logger.error("Module Whisper non initialisé")
+                if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                    self.notification_manager.show_status_notification("error", "Module Whisper non initialisé")
                 return
 
             # Charger le modèle si nécessaire
@@ -295,12 +327,20 @@ class WhisperSTTService:
                     success = self.text_injector.inject_text(text)
                     if success:
                         self.logger.info("Texte injecté avec succès")
+                        if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                            self.notification_manager.show_status_notification("ready", f"Texte: {text[:100]}...")
                     else:
                         self.logger.error("Échec de l'injection du texte")
+                        if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                            self.notification_manager.show_status_notification("error", "Échec de l'injection du texte")
                 else:
                     self.logger.error("Module d'injection de texte non initialisé")
+                    if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                        self.notification_manager.show_status_notification("error", "Module d'injection de texte non initialisé")
             else:
                 self.logger.warning("Aucun texte transcrit")
+                if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                    self.notification_manager.show_status_notification("error", "Aucun texte transcrit")
 
         except Exception as e:
             self.logger.error(f"Erreur lors du traitement de l'enregistrement: {e}", exc_info=True)
@@ -338,8 +378,15 @@ class WhisperSTTService:
             self.logger.info(f"Appuyez sur {'+'.join(modifiers)}+{key} pour démarrer/arrêter la transcription")
             self.logger.info("Appuyez sur Ctrl+C pour arrêter le service")
 
+            # Afficher une notification que le service est démarré
+            if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                self.notification_manager.show_status_notification("running", 
+                    f"Raccourci: {'+'.join(modifiers)}+{key}")
+
         except Exception as e:
             self.logger.error(f"Erreur lors du démarrage du service: {e}", exc_info=True)
+            if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                self.notification_manager.show_status_notification("error", str(e))
             raise
 
     def stop(self) -> None:
@@ -359,6 +406,14 @@ class WhisperSTTService:
             self.hotkey_manager.unregister_all()
 
         self.logger.info("Service arrêté")
+        
+        # Afficher une notification d'arrêt
+        if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+            self.notification_manager.show_notification(
+                "Whisper STT - Arrêt",
+                "Le service Whisper STT a été arrêté.",
+                icon="info"
+            )
 
     def run(self) -> None:
         """Boucle principale du service"""
@@ -376,6 +431,8 @@ class WhisperSTTService:
             self.logger.info("Interruption clavier détectée")
         except Exception as e:
             self.logger.error(f"Erreur dans la boucle principale: {e}", exc_info=True)
+            if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                self.notification_manager.show_status_notification("error", str(e))
         finally:
             self.stop()
 
