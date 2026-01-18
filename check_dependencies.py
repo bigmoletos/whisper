@@ -12,24 +12,25 @@ import json
 def check_dependencies():
     """Vérifie que toutes les dépendances sont installées"""
     print("Vérification des dépendances...")
-    
-    required_packages = [
-        'sounddevice',
-        'numpy',
-        'faster-whisper',
-        'win10toast',
-        'pywin32',
-        'pynput'
-    ]
-    
+
+    # Map package names to import names
+    required_packages = {
+        'sounddevice': 'sounddevice',
+        'numpy': 'numpy',
+        'faster-whisper': 'faster_whisper',
+        'win10toast': 'win10toast',
+        'pywin32': 'win32api',
+        'pynput': 'pynput'
+    }
+
     missing = []
-    for package in required_packages:
+    for package_name, import_name in required_packages.items():
         try:
-            __import__(package)
-            print(f'[OK] {package} est installé')
+            __import__(import_name)
+            print(f'[OK] {package_name} est installé')
         except ImportError:
-            print(f'[ERREUR] {package} est manquant')
-            missing.append(package)
+            print(f'[ERREUR] {package_name} est manquant')
+            missing.append(package_name)
     
     if missing:
         print(f'\n[AVERTISSEMENT] {len(missing)} package(s) manquant(s): {missing}')

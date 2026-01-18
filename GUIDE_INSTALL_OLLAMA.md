@@ -60,7 +60,7 @@ ollama --version
 
 ## Débug ollama ne se lance pas
 ### Définir le bon chemin
-  $ollamaDir = "C:\Users\franck.desmedt\dev\ollama"
+  $ollamaDir = "$env:USERPROFILE\dev\ollama"
 
   #### Récupérer le PATH actuel et nettoyer les entrées incorrectes
   $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
