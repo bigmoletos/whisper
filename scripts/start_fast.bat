@@ -66,37 +66,48 @@ if %ERRORLEVEL% neq 0 (
 )
 echo.
 
-:: Vérifier faster-whisper
-echo Verification de faster-whisper
+:: Vérifier whisper et faster-whisper
+echo Verification des modules whisper
+!PYTHON_CMD! -c "import whisper" >nul 2>&1
+set WHISPER_OK=%ERRORLEVEL%
+
 !PYTHON_CMD! -c "import faster_whisper" >nul 2>&1
-if %ERRORLEVEL% equ 0 (
-    echo [OK] faster-whisper est installe
+set FASTER_WHISPER_OK=%ERRORLEVEL%
+
+if %WHISPER_OK% equ 0 if %FASTER_WHISPER_OK% equ 0 (
+    echo [OK] whisper et faster-whisper sont installes
     goto :launch_app
 )
 
-echo [INFO] faster-whisper n'est pas installe
+if %WHISPER_OK% neq 0 (
+    echo [INFO] openai-whisper n'est pas installe
+)
+if %FASTER_WHISPER_OK% neq 0 (
+    echo [INFO] faster-whisper n'est pas installe
+)
 echo.
 
 :: Détecter si on est dans un venv
 if defined VIRTUAL_ENV (
     echo [INFO] Environnement virtuel detecte
-    echo Installation de faster-whisper en cours
-    !PYTHON_CMD! -m pip install faster-whisper
+    echo Installation de openai-whisper et faster-whisper en cours
+    !PYTHON_CMD! -m pip install openai-whisper faster-whisper
     goto :check_install
 )
 
-echo Installation de faster-whisper en mode utilisateur
-!PYTHON_CMD! -m pip install faster-whisper --user
+echo Installation de openai-whisper et faster-whisper en mode utilisateur
+!PYTHON_CMD! -m pip install openai-whisper faster-whisper --user
 
 :check_install
 
 if %ERRORLEVEL% neq 0 (
     echo.
-    echo [ERREUR] Installation de faster-whisper a echoue
+    echo [ERREUR] Installation de whisper a echoue
     echo.
     echo SOLUTIONS:
-    echo 1. Installez Rust: https://rustup.rs/
+    echo 1. Pour faster-whisper, installez Rust: https://rustup.rs/
     echo 2. OU changez config.json pour utiliser engine: whisper
+    echo 3. Verifiez votre connexion internet
     echo.
     pause
     exit /b 1
