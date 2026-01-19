@@ -1,0 +1,66 @@
+# {{ title }}
+
+**Date:** {{ date }}
+**Durée:** {{ duration }}
+**Participants:** {{ participants | default("Non spécifié") }}
+
+---
+
+## Résumé Exécutif
+
+{{ executive_summary }}
+
+---
+
+## Points Clés
+
+{% for point in key_points %}
+- {{ point }}
+{% endfor %}
+
+---
+
+## Highlights
+
+{% for highlight in highlights %}
+### {{ highlight.topic }}
+{{ highlight.content }}
+
+{% endfor %}
+
+---
+
+## Actions à Suivre
+
+{% for action in action_items %}
+- [ ] **{{ action.action }}**{% if action.assignee %} - *{{ action.assignee }}*{% endif %}{% if action.deadline %} (Échéance: {{ action.deadline }}){% endif %}
+
+{% endfor %}
+
+---
+
+## Décisions Prises
+
+{% for decision in decisions %}
+- {{ decision }}
+{% endfor %}
+
+---
+
+{% if include_full_transcript %}
+## Transcription Complète
+
+<details>
+<summary>Cliquez pour afficher la transcription complète</summary>
+
+{% for segment in transcript_segments %}
+**[{{ segment.timestamp }}]** {{ segment.text }}
+
+{% endfor %}
+
+</details>
+{% endif %}
+
+---
+
+*Rapport généré automatiquement par Meeting Assistant v{{ version }}*

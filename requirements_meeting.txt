@@ -1,0 +1,26 @@
+# Meeting Assistant - Dépendances additionnelles
+# Installer avec: pip install -r requirements_meeting.txt
+
+# Capture audio système WASAPI (Windows)
+PyAudioWPatch>=0.2.12.7
+
+# Communication HTTP (pour Ollama et APIs)
+requests>=2.31.0
+
+# LLM APIs optionnelles
+openai>=1.0.0
+anthropic>=0.18.0
+
+# Templates et rapports
+jinja2>=3.1.0
+markdown>=3.5.0
+
+# System tray (optionnel)
+pystray>=0.19.0
+pillow>=10.0.0
+
+# Dépendances héritées du projet Whisper principal
+# (déjà dans requirements.txt)
+# - faster-whisper
+# - numpy
+# - torch
