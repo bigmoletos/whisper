@@ -121,7 +121,7 @@ class MeetingSession:
                 session_id=self.session_id
             )
 
-            # Batch Transcriber
+            # Batch Transcriber (avec sélection adaptative du modèle)
             self._transcriber = BatchTranscriber(
                 model_name=self._transcription_config.get("model", "medium"),
                 language=self._transcription_config.get("language", "fr"),
@@ -129,7 +129,9 @@ class MeetingSession:
                 compute_type=self._transcription_config.get("compute_type", "int8"),
                 sample_rate=self._audio_config.get("sample_rate", 16000),
                 on_transcription=self._on_transcription,
-                silence_threshold=self._audio_config.get("silence_threshold", 0.01)
+                silence_threshold=self._audio_config.get("silence_threshold", 0.01),
+                adaptive_model=self._transcription_config.get("adaptive_model", True),
+                fallback_model=self._transcription_config.get("fallback_model", "small")
             )
 
             # Audio Buffer

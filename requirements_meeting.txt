@@ -1,6 +1,9 @@
 # Meeting Assistant - Dépendances additionnelles
 # Installer avec: pip install -r requirements_meeting.txt
 
+# Monitoring système (pour sélection adaptative du modèle)
+psutil>=5.9.0
+
 # Capture audio système WASAPI (Windows)
 PyAudioWPatch>=0.2.12.7
 

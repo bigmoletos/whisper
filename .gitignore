@@ -49,3 +49,7 @@ temp_audio/
 # OS
 .DS_Store
 Thumbs.db
+
+
+meeting_reports/*
+meeting_sessions/*

@@ -1,6 +1,7 @@
 """
 Transcription par micro-batch pour réunions longues
 Utilise Faster-Whisper pour transcrire des segments de 10 secondes
+Avec sélection adaptative du modèle selon la mémoire disponible
 """
 
 import threading
@@ -16,6 +17,9 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 logger = logging.getLogger(__name__)
+
+# Import du sélecteur adaptatif
+from .adaptive_model_selector import AdaptiveModelSelector
 
 # Import du transcriber existant
 try:
@@ -44,27 +48,44 @@ class BatchTranscriber:
         compute_type: str = "int8",
         sample_rate: int = 16000,
         on_transcription: Optional[Callable[[str, float, float], None]] = None,
-        silence_threshold: float = 0.01
+        silence_threshold: float = 0.01,
+        adaptive_model: bool = True,
+        fallback_model: str = "small"
     ):
         """
         Initialise le transcriber par batch
 
         Args:
-            model_name: Nom du modèle Whisper
+            model_name: Nom du modèle Whisper préféré
             language: Langue de transcription
             device: Device (cpu/cuda)
             compute_type: Type de calcul (int8/float16/float32)
             sample_rate: Fréquence d'échantillonnage
             on_transcription: Callback(text, start_time, end_time) pour chaque transcription
             silence_threshold: Seuil pour détecter le silence
+            adaptive_model: Active la sélection adaptative du modèle selon la mémoire
+            fallback_model: Modèle de repli si mémoire insuffisante
         """
-        self.model_name = model_name
+        self.preferred_model_name = model_name
+        self.fallback_model = fallback_model
+        self.adaptive_model = adaptive_model
         self.language = language
         self.device = device
         self.compute_type = compute_type
         self.sample_rate = sample_rate
         self.on_transcription = on_transcription
         self.silence_threshold = silence_threshold
+
+        # Sélecteur adaptatif
+        self._model_selector: Optional[AdaptiveModelSelector] = None
+        if adaptive_model:
+            self._model_selector = AdaptiveModelSelector(
+                preferred_model=model_name,
+                fallback_model=fallback_model
+            )
+
+        # Nom du modèle effectif (déterminé au chargement)
+        self.model_name = model_name
 
         # Transcriber Whisper (chargé à la demande)
         self._transcriber: Optional[FasterWhisperTranscriber] = None
@@ -81,18 +102,24 @@ class BatchTranscriber:
         self._total_audio_duration = 0.0
         self._total_transcription_time = 0.0
         self._empty_segments = 0
+        self._memory_errors = 0
+        self._model_switches = 0
 
         # Session start time pour les timestamps
         self._session_start_time: Optional[float] = None
 
         logger.info(
-            f"BatchTranscriber initialisé: {model_name} ({language}), "
-            f"device={device}, compute={compute_type}"
+            f"BatchTranscriber initialisé: préféré={model_name}, fallback={fallback_model}, "
+            f"adaptatif={adaptive_model}, device={device}, compute={compute_type}"
         )
 
-    def _load_model(self) -> bool:
+    def _load_model(self, model_name: Optional[str] = None) -> bool:
         """
         Charge le modèle Whisper si nécessaire
+        Utilise la sélection adaptative si activée
+
+        Args:
+            model_name: Force un modèle spécifique (ignore la sélection adaptative)
 
         Returns:
             True si le modèle est chargé
@@ -104,21 +131,92 @@ class BatchTranscriber:
             logger.error("FasterWhisperTranscriber non disponible")
             return False
 
+        # Sélection adaptative du modèle si activée
+        if model_name:
+            selected_model = model_name
+            selection_reason = "Modèle forcé"
+        elif self._model_selector and self.adaptive_model:
+            selected_model, selection_reason = self._model_selector.select_model()
+            logger.info(f"Sélection adaptative: {selection_reason}")
+        else:
+            selected_model = self.model_name
+            selection_reason = "Modèle par défaut"
+
+        # Tentative de chargement avec fallback automatique
+        return self._try_load_model(selected_model, selection_reason)
+
+    def _try_load_model(self, model_name: str, reason: str = "") -> bool:
+        """
+        Tente de charger un modèle avec gestion des erreurs mémoire
+
+        Args:
+            model_name: Nom du modèle à charger
+            reason: Raison de la sélection pour le log
+
+        Returns:
+            True si le modèle est chargé avec succès
+        """
         try:
-            logger.info(f"Chargement du modèle Whisper '{self.model_name}'...")
+            logger.info(f"Chargement du modèle Whisper '{model_name}'... ({reason})")
             self._transcriber = FasterWhisperTranscriber(
-                model_name=self.model_name,
+                model_name=model_name,
                 language=self.language,
                 device=self.device,
                 compute_type=self.compute_type
             )
             self._transcriber.load_model()
+            self.model_name = model_name
             self._model_loaded = True
-            logger.info("Modèle Whisper chargé avec succès")
+            logger.info(f"✓ Modèle Whisper '{model_name}' chargé avec succès")
             return True
+
+        except (RuntimeError, MemoryError) as e:
+            error_msg = str(e).lower()
+            if "memory" in error_msg or "malloc" in error_msg or "alloc" in error_msg:
+                logger.warning(f"Erreur mémoire lors du chargement de '{model_name}': {e}")
+                self._memory_errors += 1
+
+                # Tenter un fallback vers un modèle plus petit
+                if self._model_selector:
+                    fallback = self._model_selector.handle_memory_error()
+                    if fallback and fallback != model_name:
+                        self._model_switches += 1
+                        logger.info(f"Tentative de fallback vers '{fallback}'...")
+                        return self._try_load_model(fallback, "Fallback après erreur mémoire")
+
+                logger.error("Impossible de charger un modèle - mémoire insuffisante")
+                return False
+            else:
+                logger.error(f"Erreur chargement modèle: {e}", exc_info=True)
+                return False
+
         except Exception as e:
             logger.error(f"Erreur chargement modèle: {e}", exc_info=True)
             return False
+
+    def _reload_with_smaller_model(self) -> bool:
+        """
+        Recharge le transcriber avec un modèle plus petit après une erreur mémoire
+
+        Returns:
+            True si le rechargement a réussi
+        """
+        if not self._model_selector:
+            return False
+
+        # Libérer le modèle actuel
+        self._transcriber = None
+        self._model_loaded = False
+
+        # Obtenir un modèle plus petit
+        new_model = self._model_selector.handle_memory_error()
+        if not new_model:
+            return False
+
+        self._model_switches += 1
+        logger.info(f"Rechargement avec le modèle '{new_model}'...")
+
+        return self._try_load_model(new_model, "Rechargement après erreur mémoire")
 
     def start(self) -> bool:
         """
@@ -267,6 +365,22 @@ class BatchTranscriber:
                 except Exception as e:
                     logger.error(f"Erreur callback transcription: {e}")
 
+        except (RuntimeError, MemoryError) as e:
+            error_msg = str(e).lower()
+            if "memory" in error_msg or "malloc" in error_msg or "alloc" in error_msg:
+                logger.warning(f"Erreur mémoire pendant transcription: {e}")
+                self._memory_errors += 1
+
+                # Tenter de recharger avec un modèle plus petit
+                if self._reload_with_smaller_model():
+                    logger.info("Modèle rechargé, réessai du segment...")
+                    # Remettre le segment dans la queue pour réessayer
+                    self._queue.put(item)
+                else:
+                    logger.error("Impossible de continuer - mémoire insuffisante")
+            else:
+                logger.error(f"Erreur transcription segment: {e}", exc_info=True)
+
         except Exception as e:
             logger.error(f"Erreur transcription segment: {e}", exc_info=True)
 
@@ -282,7 +396,7 @@ class BatchTranscriber:
             if self._total_audio_duration > 0 else 0
         )
 
-        return {
+        stats = {
             "segments_processed": self._segments_processed,
             "empty_segments": self._empty_segments,
             "total_audio_duration_seconds": self._total_audio_duration,
@@ -290,8 +404,19 @@ class BatchTranscriber:
             "real_time_factor": rtf,
             "queue_size": self._queue.qsize(),
             "model_loaded": self._model_loaded,
-            "is_running": self._is_running
+            "is_running": self._is_running,
+            "current_model": self.model_name,
+            "preferred_model": self.preferred_model_name,
+            "adaptive_model_enabled": self.adaptive_model,
+            "memory_errors": self._memory_errors,
+            "model_switches": self._model_switches
         }
+
+        # Ajouter les infos du sélecteur adaptatif si disponible
+        if self._model_selector:
+            stats["model_selector"] = self._model_selector.get_status()
+
+        return stats
 
     def get_model_info(self) -> dict:
         """Retourne les informations sur le modèle"""
