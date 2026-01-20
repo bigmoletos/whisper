@@ -1,5 +1,5 @@
 # Scripts de lancement - Whisper Local STT
-
+by fd le 19 janvier
 ## Scripts testés et fonctionnels
 
 ### ✅ `start_fast.sh` (Linux/WSL) - TESTÉ
