@@ -4,7 +4,7 @@
         "model": "large-v3",
         "language": "fr",
         "device": "cpu",
-        "initial_prompt": "Transcription technique professionnelle. Termes importants : Spring Boot, Spring Cloud, Kubernetes, Docker, Kafka, Helm, ArgoCD, Prometheus, Grafana, microservices, Hibernate, JPA, PostgreSQL, MongoDB, Redis, Maven, Gradle, Jenkins, GitLab, Terraform, AWS."
+        "initial_prompt": "Transcription technique professionnelle. Vocabulaire technique : Spring Boot, Spring Cloud, Kubernetes, Docker, Kafka, Helm, ArgoCD, Prometheus, Grafana, microservices, Hibernate, JPA, PostgreSQL, MongoDB, Redis, Maven, Gradle, Jenkins, GitLab, Terraform, AWS. Git : GitHub, Bitbucket, commit, push, pull, merge, branch, rebase, cherry-pick, stash, fork, clone, fetch, tag, release. Tests et qualité : JUnit, Mockito, Checkmarx, SonarQube, SonarCloud, Playwright, Selenium, Cypress, TestNG, Cucumber, JaCoCo, SpotBugs, Checkstyle, PMD, ESLint, Prettier. Formats de fichiers : point MD, point CSV, point JSON, point YAML, point XML, point BAT, point SH, point PS1, point PY, point JAVA, point TS, point JS, point HTML, point CSS, point SQL, point TXT, point LOG, point ENV, point PROPERTIES, point CONF, point INI, point TOML."
     },
     "audio": {
         "sample_rate": 16000,
