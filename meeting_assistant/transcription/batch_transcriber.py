@@ -8,7 +8,7 @@ import threading
 import logging
 import time
 import queue
-from typing import Optional, Callable
+from typing import Optional, Callable, Dict, Any
 from pathlib import Path
 import sys
 import numpy as np
@@ -50,7 +50,10 @@ class BatchTranscriber:
         on_transcription: Optional[Callable[[str, float, float], None]] = None,
         silence_threshold: float = 0.01,
         adaptive_model: bool = True,
-        fallback_model: str = "small"
+        fallback_model: str = "small",
+        enable_diarization: bool = False,
+        speaker_change_pause: float = 2.0,
+        max_speakers: int = 10
     ):
         """
         Initialise le transcriber par batch
@@ -65,6 +68,9 @@ class BatchTranscriber:
             silence_threshold: Seuil pour détecter le silence
             adaptive_model: Active la sélection adaptative du modèle selon la mémoire
             fallback_model: Modèle de repli si mémoire insuffisante
+            enable_diarization: Active la détection des locuteurs
+            speaker_change_pause: Durée de pause suggérant un changement de locuteur
+            max_speakers: Nombre maximum de locuteurs
         """
         self.preferred_model_name = model_name
         self.fallback_model = fallback_model
@@ -75,6 +81,15 @@ class BatchTranscriber:
         self.sample_rate = sample_rate
         self.on_transcription = on_transcription
         self.silence_threshold = silence_threshold
+
+        # Diarisation
+        self.enable_diarization = enable_diarization
+        self.speaker_change_pause = speaker_change_pause
+        self.max_speakers = max_speakers
+        self._current_speaker_idx = 0
+        self._last_segment_end_time = 0.0
+        self._speaker_labels: Dict[str, str] = {}  # ID -> Label personnalisé
+        self._speaker_stats: Dict[str, Dict[str, Any]] = {}  # Stats par locuteur
 
         # Sélecteur adaptatif
         self._model_selector: Optional[AdaptiveModelSelector] = None
@@ -110,7 +125,7 @@ class BatchTranscriber:
 
         logger.info(
             f"BatchTranscriber initialisé: préféré={model_name}, fallback={fallback_model}, "
-            f"adaptatif={adaptive_model}, device={device}, compute={compute_type}"
+            f"adaptatif={adaptive_model}, diarisation={enable_diarization}, device={device}"
         )
 
     def _load_model(self, model_name: Optional[str] = None) -> bool:
@@ -332,7 +347,7 @@ class BatchTranscriber:
             # Appeler le callback avec une chaîne vide pour maintenir le timing
             if self.on_transcription:
                 try:
-                    self.on_transcription("", timestamp, timestamp + duration)
+                    self._call_transcription_callback("", timestamp, timestamp + duration)
                 except Exception as e:
                     logger.error(f"Erreur callback (silence): {e}")
             return
@@ -358,10 +373,13 @@ class BatchTranscriber:
                 self._empty_segments += 1
                 logger.debug(f"Segment #{self._segments_processed}: vide")
 
-            # Appeler le callback
+            # Appeler le callback (avec audio pour diarisation avancée)
             if self.on_transcription:
                 try:
-                    self.on_transcription(text, timestamp, timestamp + duration)
+                    self._call_transcription_callback(
+                        text, timestamp, timestamp + duration,
+                        audio_segment=audio
+                    )
                 except Exception as e:
                     logger.error(f"Erreur callback transcription: {e}")
 
@@ -383,6 +401,224 @@ class BatchTranscriber:
 
         except Exception as e:
             logger.error(f"Erreur transcription segment: {e}", exc_info=True)
+
+    def _call_transcription_callback(
+        self,
+        text: str,
+        start_time: float,
+        end_time: float,
+        audio_segment: Optional[np.ndarray] = None
+    ) -> None:
+        """
+        Appelle le callback de transcription avec gestion de la diarisation
+
+        Args:
+            text: Texte transcrit
+            start_time: Temps de début
+            end_time: Temps de fin
+            audio_segment: Segment audio (pour analyse diarisation avancée)
+        """
+        speaker_id = None
+        speaker_label = None
+
+        if self.enable_diarization:
+            # Détecter un changement de locuteur avec heuristiques améliorées
+            should_change_speaker = self._detect_speaker_change(
+                text, start_time, end_time, audio_segment
+            )
+
+            if should_change_speaker:
+                self._current_speaker_idx = (self._current_speaker_idx + 1) % self.max_speakers
+                logger.debug(f"Changement de locuteur détecté -> SPEAKER_{self._current_speaker_idx:02d}")
+
+            speaker_id = f"SPEAKER_{self._current_speaker_idx:02d}"
+            speaker_label = self._speaker_labels.get(
+                speaker_id,
+                f"Locuteur {self._current_speaker_idx + 1}"
+            )
+
+            self._last_segment_end_time = end_time
+            self._last_segment_text = text
+
+            # Mettre à jour les statistiques du locuteur
+            self._update_speaker_stats(speaker_id, speaker_label, end_time - start_time)
+
+        # Appeler le callback
+        # Vérifier si le callback accepte les arguments de diarisation
+        try:
+            # Essayer d'abord avec les arguments étendus
+            self.on_transcription(
+                text, start_time, end_time,
+                speaker_id=speaker_id,
+                speaker_label=speaker_label
+            )
+        except TypeError:
+            # Callback ancien format sans diarisation
+            self.on_transcription(text, start_time, end_time)
+
+    def _detect_speaker_change(
+        self,
+        text: str,
+        start_time: float,
+        end_time: float,
+        audio_segment: Optional[np.ndarray] = None
+    ) -> bool:
+        """
+        Détecte si un changement de locuteur s'est produit avec plusieurs heuristiques
+
+        Args:
+            text: Texte transcrit
+            start_time: Temps de début
+            end_time: Temps de fin
+            audio_segment: Segment audio optionnel
+
+        Returns:
+            True si un changement de locuteur est détecté
+        """
+        # Heuristique 1: Pause entre segments
+        pause_duration = start_time - self._last_segment_end_time
+        if pause_duration > self.speaker_change_pause:
+            logger.debug(f"Changement détecté: pause de {pause_duration:.1f}s")
+            return True
+
+        # Heuristique 2: Marqueurs de dialogue dans le texte
+        dialogue_markers = [
+            "- ", "– ",  # Tirets de dialogue
+            "?", "!", # Questions/exclamations suivies de réponse
+        ]
+
+        # Détecter les patterns de dialogue (question-réponse)
+        if hasattr(self, '_last_segment_text') and self._last_segment_text:
+            last_text = self._last_segment_text.strip()
+            current_text = text.strip()
+
+            # Si le segment précédent finit par ? et le nouveau commence par une réponse
+            if last_text.endswith('?') and current_text and not current_text.startswith('?'):
+                logger.debug("Changement détecté: pattern question-réponse")
+                return True
+
+            # Détecter les tirets de dialogue
+            if current_text.startswith('-') or current_text.startswith('–'):
+                logger.debug("Changement détecté: tiret de dialogue")
+                return True
+
+        # Heuristique 3: Analyse audio (énergie) si disponible
+        if audio_segment is not None and len(audio_segment) > 0:
+            # Calculer l'énergie RMS du segment
+            rms = np.sqrt(np.mean(audio_segment ** 2))
+
+            # Comparer avec le segment précédent
+            if hasattr(self, '_last_segment_rms'):
+                rms_change = abs(rms - self._last_segment_rms) / max(self._last_segment_rms, 0.001)
+                # Changement significatif d'énergie (>50%)
+                if rms_change > 0.5:
+                    logger.debug(f"Changement détecté: variation énergie {rms_change:.1%}")
+                    return True
+
+            self._last_segment_rms = rms
+
+        # Heuristique 4: Changement de langue détecté
+        # (Si le texte passe du français à l'anglais par exemple)
+        if hasattr(self, '_last_segment_text') and self._last_segment_text:
+            last_has_french = any(c in self._last_segment_text.lower() for c in ['é', 'è', 'ê', 'à', 'ù', 'ç'])
+            current_has_french = any(c in text.lower() for c in ['é', 'è', 'ê', 'à', 'ù', 'ç'])
+
+            if last_has_french != current_has_french:
+                logger.debug("Changement détecté: changement de langue apparent")
+                return True
+
+        return False
+
+    def set_speaker_names(self, names: list) -> None:
+        """
+        Définit les noms des locuteurs
+
+        Args:
+            names: Liste des noms (index 0 = SPEAKER_00, etc.)
+        """
+        with self._lock:
+            for i, name in enumerate(names):
+                speaker_id = f"SPEAKER_{i:02d}"
+                self._speaker_labels[speaker_id] = name
+            logger.info(f"Noms des locuteurs définis: {names}")
+
+    def rename_speaker(self, speaker_id: str, new_label: str) -> bool:
+        """
+        Renomme un locuteur
+
+        Args:
+            speaker_id: ID du locuteur (SPEAKER_00, etc.)
+            new_label: Nouveau nom
+
+        Returns:
+            True si renommé
+        """
+        with self._lock:
+            self._speaker_labels[speaker_id] = new_label
+            logger.info(f"Locuteur renommé: {speaker_id} -> {new_label}")
+            return True
+
+    def get_speaker_labels(self) -> Dict[str, str]:
+        """Retourne les labels des locuteurs"""
+        return self._speaker_labels.copy()
+
+    def _update_speaker_stats(self, speaker_id: str, speaker_label: str, duration: float) -> None:
+        """
+        Met à jour les statistiques d'un locuteur
+
+        Args:
+            speaker_id: ID du locuteur
+            speaker_label: Nom du locuteur
+            duration: Durée du segment en secondes
+        """
+        if speaker_id not in self._speaker_stats:
+            self._speaker_stats[speaker_id] = {
+                "id": speaker_id,
+                "label": speaker_label,
+                "total_speaking_time": 0.0,
+                "segment_count": 0
+            }
+
+        self._speaker_stats[speaker_id]["total_speaking_time"] += duration
+        self._speaker_stats[speaker_id]["segment_count"] += 1
+        # Mettre à jour le label au cas où il a changé
+        self._speaker_stats[speaker_id]["label"] = speaker_label
+
+    def get_speaker_stats(self) -> Dict[str, Any]:
+        """
+        Retourne les statistiques des locuteurs
+
+        Returns:
+            Dictionnaire avec les stats des locuteurs
+        """
+        if not self._speaker_stats:
+            return {}
+
+        # Calculer le temps total de parole
+        total_time = sum(s["total_speaking_time"] for s in self._speaker_stats.values())
+
+        speakers = []
+        for speaker_id, stats in self._speaker_stats.items():
+            speaking_percentage = (
+                (stats["total_speaking_time"] / total_time * 100)
+                if total_time > 0 else 0
+            )
+            speakers.append({
+                "id": stats["id"],
+                "label": stats["label"],
+                "total_speaking_time": round(stats["total_speaking_time"], 2),
+                "segment_count": stats["segment_count"],
+                "speaking_percentage": round(speaking_percentage, 1)
+            })
+
+        # Trier par temps de parole décroissant
+        speakers.sort(key=lambda x: x["total_speaking_time"], reverse=True)
+
+        return {
+            "speaker_count": len(self._speaker_stats),
+            "total_speaking_time": round(total_time, 2),
+            "speakers": speakers
+        }
 
     def get_stats(self) -> dict:
         """

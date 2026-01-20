@@ -5,6 +5,7 @@ Coordonne la capture audio, transcription, analyse et génération de rapport
 
 import json
 import logging
+import os
 import threading
 import time
 from pathlib import Path
@@ -16,9 +17,11 @@ from ..capture.system_audio_capture import SystemAudioCapture
 from ..capture.audio_buffer import AudioBuffer
 from ..transcription.batch_transcriber import BatchTranscriber
 from ..transcription.transcript_storage import TranscriptStorage
+from ..transcription.audio_recorder import AudioRecorder, PyannotePostProcessor
 from ..analysis.llm_analyzer import LLMAnalyzer
 from ..analysis.intermediate_summarizer import IntermediateSummarizer
 from ..analysis.final_synthesizer import FinalSynthesizer, MeetingReport
+from ..utils.env_loader import load_env_file, get_env_var
 from .checkpoint_manager import CheckpointManager, SessionState
 
 logger = logging.getLogger(__name__)
@@ -73,6 +76,8 @@ class MeetingSession:
         self._summarizer: Optional[IntermediateSummarizer] = None
         self._synthesizer: Optional[FinalSynthesizer] = None
         self._checkpoint_manager: Optional[CheckpointManager] = None
+        self._audio_recorder: Optional[AudioRecorder] = None
+        self._pyannote_processor: Optional[PyannotePostProcessor] = None
 
         # État
         self._is_running = False
@@ -107,6 +112,13 @@ class MeetingSession:
             True si tous les composants sont initialisés
         """
         try:
+            # Charger le fichier .env si configuré (pour TOKEN_HF, etc.)
+            diarization_config = self._transcription_config.get("diarization", {})
+            env_file = diarization_config.get("env_file")
+            if env_file:
+                load_env_file(env_file)
+                logger.info(f"Variables d'environnement chargées depuis {env_file}")
+
             # Checkpoint Manager
             self._checkpoint_manager = CheckpointManager(
                 session_dir=self.sessions_dir,
@@ -121,7 +133,8 @@ class MeetingSession:
                 session_id=self.session_id
             )
 
-            # Batch Transcriber (avec sélection adaptative du modèle)
+            # Batch Transcriber (avec sélection adaptative du modèle et diarisation)
+            diarization_config = self._transcription_config.get("diarization", {})
             self._transcriber = BatchTranscriber(
                 model_name=self._transcription_config.get("model", "medium"),
                 language=self._transcription_config.get("language", "fr"),
@@ -131,8 +144,16 @@ class MeetingSession:
                 on_transcription=self._on_transcription,
                 silence_threshold=self._audio_config.get("silence_threshold", 0.01),
                 adaptive_model=self._transcription_config.get("adaptive_model", True),
-                fallback_model=self._transcription_config.get("fallback_model", "small")
+                fallback_model=self._transcription_config.get("fallback_model", "small"),
+                enable_diarization=diarization_config.get("enabled", False),
+                speaker_change_pause=diarization_config.get("speaker_change_pause", 2.0),
+                max_speakers=diarization_config.get("max_speakers", 10)
             )
+
+            # Définir les noms des participants si spécifiés
+            participant_names = diarization_config.get("participant_names", [])
+            if participant_names:
+                self._transcriber.set_speaker_names(participant_names)
 
             # Audio Buffer
             self._audio_buffer = AudioBuffer(
@@ -146,8 +167,29 @@ class MeetingSession:
             self._audio_capture = SystemAudioCapture(
                 sample_rate=self._audio_config.get("sample_rate", 16000),
                 channels=self._audio_config.get("channels", 1),
-                on_audio_chunk=self._audio_buffer.add_chunk
+                on_audio_chunk=self._on_audio_chunk
             )
+
+            # Audio Recorder (pour post-processing pyannote)
+            if diarization_config.get("use_pyannote", False):
+                self._audio_recorder = AudioRecorder(
+                    session_dir=self.sessions_dir,
+                    session_id=self.session_id,
+                    sample_rate=self._audio_config.get("sample_rate", 16000),
+                    channels=1
+                )
+
+                # Post-processeur pyannote
+                hf_token_env = diarization_config.get("hf_token_env", "TOKEN_HF")
+                self._pyannote_processor = PyannotePostProcessor(
+                    hf_token_env=hf_token_env,
+                    model_name="pyannote/speaker-diarization-3.1"
+                )
+
+                if self._pyannote_processor.is_available:
+                    logger.info("Post-processing pyannote activé")
+                else:
+                    logger.warning("pyannote non disponible - post-processing désactivé")
 
             # LLM Analyzer
             self._llm_analyzer = LLMAnalyzer(self.config)
@@ -201,6 +243,11 @@ class MeetingSession:
                     logger.error("Échec démarrage capture audio")
                     self._transcriber.stop()
                     return False
+
+                # Démarrer l'enregistrement audio (pour post-processing pyannote)
+                if self._audio_recorder:
+                    self._audio_recorder.start()
+                    logger.info("Enregistrement audio démarré pour post-processing")
 
                 # Checkpoint auto-save
                 self._checkpoint_manager.start_auto_checkpoint()
@@ -271,6 +318,9 @@ class MeetingSession:
 
             self._is_running = False
 
+            # Post-processing pyannote (diarisation avancée)
+            self._run_pyannote_postprocessing()
+
             # Générer le rapport final
             report = self._generate_final_report()
 
@@ -317,6 +367,22 @@ class MeetingSession:
             self._notify_status("resumed", {})
             logger.info("Session reprise")
 
+    def _on_audio_chunk(self, audio_data, timestamp: float) -> None:
+        """
+        Callback pour chaque chunk audio reçu de la capture
+
+        Args:
+            audio_data: Données audio
+            timestamp: Timestamp du chunk
+        """
+        # Envoyer au buffer pour transcription
+        if self._audio_buffer:
+            self._audio_buffer.add_chunk(audio_data, timestamp)
+
+        # Enregistrer pour post-processing pyannote
+        if self._audio_recorder and self._audio_recorder.is_recording:
+            self._audio_recorder.add_chunk(audio_data)
+
     def _on_buffer_ready(self, audio_data, timestamp: float) -> None:
         """
         Callback quand un buffer audio est prêt
@@ -330,7 +396,14 @@ class MeetingSession:
             relative_time = timestamp - self._start_time if self._start_time else 0
             self._transcriber.add_audio(audio_data, relative_time)
 
-    def _on_transcription(self, text: str, start_time: float, end_time: float) -> None:
+    def _on_transcription(
+        self,
+        text: str,
+        start_time: float,
+        end_time: float,
+        speaker_id: Optional[str] = None,
+        speaker_label: Optional[str] = None
+    ) -> None:
         """
         Callback pour chaque transcription
 
@@ -338,9 +411,15 @@ class MeetingSession:
             text: Texte transcrit
             start_time: Temps de début
             end_time: Temps de fin
+            speaker_id: ID du locuteur (SPEAKER_00, etc.)
+            speaker_label: Nom du locuteur
         """
         if self._transcript_storage:
-            self._transcript_storage.add_segment(text, start_time, end_time)
+            self._transcript_storage.add_segment(
+                text, start_time, end_time,
+                speaker_id=speaker_id,
+                speaker_label=speaker_label
+            )
 
         # Mettre à jour les stats
         if self._checkpoint_manager:
@@ -366,6 +445,101 @@ class MeetingSession:
             self._checkpoint_manager.update_stats(
                 summaries_generated=self._summarizer.get_summary_count() if self._summarizer else 0
             )
+
+    def _run_pyannote_postprocessing(self) -> None:
+        """
+        Effectue le post-processing pyannote pour corriger l'attribution des locuteurs
+        """
+        if not self._audio_recorder or not self._pyannote_processor:
+            return
+
+        if not self._pyannote_processor.is_available:
+            logger.warning("pyannote non disponible - post-processing ignoré")
+            return
+
+        logger.info("Démarrage du post-processing pyannote...")
+        self._notify_status("pyannote_processing", {"status": "started"})
+
+        try:
+            # Sauvegarder l'audio complet
+            audio_file = self._audio_recorder.stop()
+            if not audio_file:
+                logger.warning("Pas d'audio enregistré pour le post-processing")
+                return
+
+            # Effectuer la diarisation
+            diarization_config = self._transcription_config.get("diarization", {})
+            diarization_segments = self._pyannote_processor.process_audio_file(
+                audio_file,
+                min_speakers=1,
+                max_speakers=diarization_config.get("max_speakers", 10)
+            )
+
+            if not diarization_segments:
+                logger.warning("Aucun segment de diarisation détecté")
+                return
+
+            # Compter les locuteurs
+            speakers = set(seg[2] for seg in diarization_segments)
+            logger.info(f"Diarisation terminée: {len(speakers)} locuteurs détectés")
+
+            # Récupérer les segments de transcription
+            if self._transcript_storage:
+                transcript_segments = self._transcript_storage.get_all_segments_as_dicts()
+
+                # Réattribuer les locuteurs
+                updated_segments = self._pyannote_processor.reassign_speakers_to_transcript(
+                    transcript_segments,
+                    diarization_segments
+                )
+
+                # Sauvegarder les segments mis à jour
+                self._save_corrected_transcript(updated_segments)
+
+                logger.info(f"Transcription corrigée: {len(updated_segments)} segments mis à jour")
+
+            self._notify_status("pyannote_processing", {
+                "status": "completed",
+                "speakers_detected": len(speakers)
+            })
+
+        except Exception as e:
+            logger.error(f"Erreur post-processing pyannote: {e}", exc_info=True)
+            self._notify_status("pyannote_processing", {"status": "error", "error": str(e)})
+
+    def _save_corrected_transcript(self, segments: list) -> None:
+        """
+        Sauvegarde la transcription corrigée avec les bons locuteurs
+
+        Args:
+            segments: Liste des segments avec locuteurs corrigés
+        """
+        if not self._transcript_storage:
+            return
+
+        import json
+        corrected_file = self._transcript_storage.transcript_dir / "corrected_transcript.json"
+
+        try:
+            # Sauvegarder une copie JSON pour référence
+            with open(corrected_file, "w", encoding="utf-8") as f:
+                json.dump({
+                    "session_id": self.session_id,
+                    "meeting_name": self.meeting_name,
+                    "segments": segments,
+                    "corrected_by": "pyannote"
+                }, f, indent=2, ensure_ascii=False)
+
+            logger.info(f"Transcription corrigée sauvegardée: {corrected_file}")
+
+            # Mettre à jour les fichiers principaux (segments.jsonl et raw.txt)
+            if self._transcript_storage.rewrite_with_updated_speakers(segments):
+                logger.info("Fichiers de transcription mis à jour avec les locuteurs corrigés")
+            else:
+                logger.warning("Échec de la mise à jour des fichiers de transcription")
+
+        except Exception as e:
+            logger.error(f"Erreur sauvegarde transcription corrigée: {e}")
 
     def _summary_loop(self) -> None:
         """Boucle de génération des résumés intermédiaires"""
@@ -416,6 +590,9 @@ class MeetingSession:
             # Date
             date_str = datetime.now().strftime("%d/%m/%Y %H:%M")
 
+            # Récupérer les statistiques des locuteurs
+            speaker_stats = self._get_speaker_stats()
+
             # Générer le rapport
             if summaries:
                 report = self._synthesizer.synthesize(
@@ -434,6 +611,15 @@ class MeetingSession:
                     meeting_duration=duration_str
                 )
 
+            # Ajouter les statistiques des locuteurs
+            if speaker_stats:
+                report.speaker_stats = speaker_stats
+                # Mettre à jour les participants si non spécifié
+                if report.participants == "Non spécifié" and speaker_stats.get("speakers"):
+                    participants = [s.get("label", s.get("id", "Inconnu"))
+                                    for s in speaker_stats.get("speakers", [])]
+                    report.participants = ", ".join(participants)
+
             # Sauvegarder le rapport
             self._save_report(report)
 
@@ -443,6 +629,22 @@ class MeetingSession:
         except Exception as e:
             logger.error(f"Erreur génération rapport: {e}", exc_info=True)
             return None
+
+    def _get_speaker_stats(self) -> Dict[str, Any]:
+        """
+        Récupère les statistiques des locuteurs
+
+        Returns:
+            Dictionnaire avec les stats des locuteurs
+        """
+        if not self._transcriber:
+            return {}
+
+        try:
+            return self._transcriber.get_speaker_stats()
+        except AttributeError:
+            # Méthode non disponible
+            return {}
 
     def _save_report(self, report: MeetingReport) -> None:
         """Sauvegarde le rapport en JSON"""

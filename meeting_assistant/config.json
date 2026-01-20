@@ -14,7 +14,16 @@
     "adaptive_model": true,
     "language": "fr",
     "device": "cpu",
-    "compute_type": "int8"
+    "compute_type": "int8",
+    "diarization": {
+      "enabled": true,
+      "speaker_change_pause": 2.0,
+      "max_speakers": 10,
+      "participant_names": [],
+      "use_pyannote": true,
+      "hf_token_env": "TOKEN_HF",
+      "env_file": "C:/Users/franck.desmedt/.secrets/api-keys.env"
+    }
   },
 
   "analysis": {

@@ -30,6 +30,9 @@ class MeetingReport:
     action_items: List[Dict[str, Any]] = field(default_factory=list)
     decisions: List[str] = field(default_factory=list)
 
+    # Statistiques des locuteurs
+    speaker_stats: Dict[str, Any] = field(default_factory=dict)
+
     # Métadonnées
     generation_time: float = 0.0
     llm_backend: str = ""
@@ -37,7 +40,7 @@ class MeetingReport:
 
     def to_dict(self) -> dict:
         """Convertit en dictionnaire"""
-        return {
+        result = {
             "title": self.title,
             "date": self.date,
             "duration": self.duration,
@@ -53,6 +56,12 @@ class MeetingReport:
                 "total_tokens": self.total_tokens
             }
         }
+
+        # Ajouter les stats des locuteurs si disponibles
+        if self.speaker_stats:
+            result["speaker_stats"] = self.speaker_stats
+
+        return result
 
 
 class FinalSynthesizer:

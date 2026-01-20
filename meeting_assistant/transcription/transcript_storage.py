@@ -8,7 +8,7 @@ import logging
 import threading
 import time
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -22,12 +22,16 @@ class TranscriptSegment:
         text: str,
         start_time: float,
         end_time: float,
-        segment_index: int
+        segment_index: int,
+        speaker_id: Optional[str] = None,
+        speaker_label: Optional[str] = None
     ):
         self.text = text
         self.start_time = start_time
         self.end_time = end_time
         self.segment_index = segment_index
+        self.speaker_id = speaker_id
+        self.speaker_label = speaker_label
         self.created_at = time.time()
 
     def to_dict(self) -> dict:
@@ -37,6 +41,8 @@ class TranscriptSegment:
             "start_time": self.start_time,
             "end_time": self.end_time,
             "segment_index": self.segment_index,
+            "speaker_id": self.speaker_id,
+            "speaker_label": self.speaker_label,
             "created_at": self.created_at
         }
 
@@ -47,7 +53,9 @@ class TranscriptSegment:
             text=data["text"],
             start_time=data["start_time"],
             end_time=data["end_time"],
-            segment_index=data["segment_index"]
+            segment_index=data["segment_index"],
+            speaker_id=data.get("speaker_id"),
+            speaker_label=data.get("speaker_label")
         )
         segment.created_at = data.get("created_at", time.time())
         return segment
@@ -137,7 +145,14 @@ class TranscriptStorage:
         with open(self.metadata_file, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)
 
-    def add_segment(self, text: str, start_time: float, end_time: float) -> TranscriptSegment:
+    def add_segment(
+        self,
+        text: str,
+        start_time: float,
+        end_time: float,
+        speaker_id: Optional[str] = None,
+        speaker_label: Optional[str] = None
+    ) -> TranscriptSegment:
         """
         Ajoute un segment de transcription
 
@@ -145,6 +160,8 @@ class TranscriptStorage:
             text: Texte transcrit
             start_time: Timestamp de début (relatif au début de la session)
             end_time: Timestamp de fin
+            speaker_id: ID du locuteur (SPEAKER_00, etc.)
+            speaker_label: Nom du locuteur
 
         Returns:
             Le segment créé
@@ -155,14 +172,20 @@ class TranscriptStorage:
                 text=text,
                 start_time=start_time,
                 end_time=end_time,
-                segment_index=self._segment_count
+                segment_index=self._segment_count,
+                speaker_id=speaker_id,
+                speaker_label=speaker_label
             )
 
-            # Écrire dans le fichier raw (texte brut avec timestamp)
+            # Écrire dans le fichier raw (texte brut avec timestamp et locuteur)
             if text.strip():
                 timestamp_str = segment.format_timestamp()
-                with open(self.raw_file, "a", encoding="utf-8") as f:
-                    f.write(f"[{timestamp_str}] {text}\n")
+                if speaker_label:
+                    with open(self.raw_file, "a", encoding="utf-8") as f:
+                        f.write(f"[{timestamp_str}] {speaker_label}: {text}\n")
+                else:
+                    with open(self.raw_file, "a", encoding="utf-8") as f:
+                        f.write(f"[{timestamp_str}] {text}\n")
 
             # Écrire dans le fichier segments (JSONL)
             with open(self.segments_file, "a", encoding="utf-8") as f:
@@ -245,12 +268,15 @@ class TranscriptStorage:
                         segments.append(TranscriptSegment.from_dict(segment_data))
         return segments
 
-    def get_formatted_transcript(self) -> List[dict]:
+    def get_formatted_transcript(self, include_speakers: bool = True) -> List[dict]:
         """
         Récupère la transcription formatée pour le rapport
 
+        Args:
+            include_speakers: Inclure les informations de locuteur
+
         Returns:
-            Liste de dictionnaires avec timestamp et text
+            Liste de dictionnaires avec timestamp, text et speaker
         """
         result = []
         with self._lock:
@@ -260,11 +286,137 @@ class TranscriptStorage:
                         segment_data = json.loads(line)
                         if segment_data["text"].strip():
                             segment = TranscriptSegment.from_dict(segment_data)
-                            result.append({
+                            entry = {
                                 "timestamp": segment.format_timestamp(),
                                 "text": segment.text
+                            }
+                            if include_speakers and segment.speaker_label:
+                                entry["speaker_id"] = segment.speaker_id
+                                entry["speaker"] = segment.speaker_label
+                            result.append(entry)
+        return result
+
+    def get_transcript_by_speaker(self) -> Dict[str, List[dict]]:
+        """
+        Récupère la transcription groupée par locuteur
+
+        Returns:
+            Dictionnaire {speaker_label: [segments]}
+        """
+        result: Dict[str, List[dict]] = {}
+        with self._lock:
+            with open(self.segments_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        segment_data = json.loads(line)
+                        if segment_data["text"].strip():
+                            segment = TranscriptSegment.from_dict(segment_data)
+                            speaker = segment.speaker_label or "Inconnu"
+                            if speaker not in result:
+                                result[speaker] = []
+                            result[speaker].append({
+                                "timestamp": segment.format_timestamp(),
+                                "text": segment.text,
+                                "start_time": segment.start_time,
+                                "end_time": segment.end_time
                             })
         return result
+
+    def get_all_segments_as_dicts(self) -> List[dict]:
+        """
+        Récupère tous les segments sous forme de dictionnaires
+        Utilisé pour le post-processing pyannote
+
+        Returns:
+            Liste de dictionnaires avec toutes les données des segments
+        """
+        segments = []
+        with self._lock:
+            with open(self.segments_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        segment_data = json.loads(line)
+                        segments.append(segment_data)
+        return segments
+
+    def update_segment_speaker(
+        self,
+        segment_index: int,
+        speaker_id: str,
+        speaker_label: str
+    ) -> bool:
+        """
+        Met à jour le locuteur d'un segment spécifique
+
+        Args:
+            segment_index: Index du segment à modifier
+            speaker_id: Nouvel ID de locuteur
+            speaker_label: Nouveau label de locuteur
+
+        Returns:
+            True si mis à jour avec succès
+        """
+        with self._lock:
+            # Lire tous les segments
+            segments = []
+            with open(self.segments_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        segments.append(json.loads(line))
+
+            # Mettre à jour le segment
+            if 0 <= segment_index < len(segments):
+                segments[segment_index]["speaker_id"] = speaker_id
+                segments[segment_index]["speaker_label"] = speaker_label
+
+                # Réécrire le fichier
+                with open(self.segments_file, "w", encoding="utf-8") as f:
+                    for seg in segments:
+                        f.write(json.dumps(seg, ensure_ascii=False) + "\n")
+
+                return True
+            return False
+
+    def rewrite_with_updated_speakers(self, updated_segments: List[dict]) -> bool:
+        """
+        Réécrit tous les segments avec les locuteurs corrigés par pyannote
+
+        Args:
+            updated_segments: Liste des segments avec speaker_id/speaker_label mis à jour
+
+        Returns:
+            True si réécrit avec succès
+        """
+        with self._lock:
+            try:
+                # Réécrire le fichier segments
+                with open(self.segments_file, "w", encoding="utf-8") as f:
+                    for seg in updated_segments:
+                        f.write(json.dumps(seg, ensure_ascii=False) + "\n")
+
+                # Réécrire le fichier raw avec les nouveaux locuteurs
+                with open(self.raw_file, "w", encoding="utf-8") as f:
+                    for seg in updated_segments:
+                        if seg.get("text", "").strip():
+                            start_time = seg.get("start_time", 0)
+                            total_seconds = int(start_time)
+                            hours = total_seconds // 3600
+                            minutes = (total_seconds % 3600) // 60
+                            seconds = total_seconds % 60
+                            timestamp_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+                            speaker_label = seg.get("speaker_label")
+                            if speaker_label:
+                                f.write(f"[{timestamp_str}] {speaker_label}: {seg['text']}\n")
+                            else:
+                                f.write(f"[{timestamp_str}] {seg['text']}\n")
+
+                logger.info(f"Segments réécrits avec locuteurs corrigés: {len(updated_segments)}")
+                return True
+
+            except Exception as e:
+                logger.error(f"Erreur réécriture segments: {e}")
+                return False
 
     def get_stats(self) -> dict:
         """
