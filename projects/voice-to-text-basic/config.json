@@ -1,0 +1,24 @@
+{
+    "whisper": {
+        "engine": "whisper",
+        "model": "large-v3",
+        "language": "fr",
+        "device": "cpu",
+        "initial_prompt": "Transcription technique professionnelle. Termes importants : Spring Boot, Spring Cloud, Kubernetes, Docker, Kafka, Helm, ArgoCD, Prometheus, Grafana, microservices, Hibernate, JPA, PostgreSQL, MongoDB, Redis, Maven, Gradle, Jenkins, GitLab, Terraform, AWS."
+    },
+    "audio": {
+        "sample_rate": 16000,
+        "channels": 1,
+        "chunk_duration": 3.0,
+        "silence_threshold": 0.01,
+        "silence_duration": 1.5
+    },
+    "hotkey": {
+        "modifiers": ["ctrl", "alt"],
+        "key": "7"
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "voice_transcriber.log"
+    }
+}

@@ -1,0 +1,46 @@
+{
+    "audio": {
+        "sample_rate": 16000,
+        "channels": 1,
+        "micro_batch_seconds": 10,
+        "silence_threshold": 0.01
+    },
+    "transcription": {
+        "model": "medium",
+        "fallback_model": "small",
+        "adaptive_model": true,
+        "language": "fr",
+        "device": "cpu",
+        "compute_type": "int8",
+        "diarization": {
+            "enabled": true,
+            "speaker_change_pause": 2.0,
+            "max_speakers": 10,
+            "participant_names": [],
+            "use_pyannote": false
+        }
+    },
+    "analysis": {
+        "llm_backend": "ollama",
+        "ollama": {
+            "base_url": "http://localhost:11434",
+            "model": "llama3.2"
+        },
+        "intermediate_summary_interval_minutes": 10
+    },
+    "session": {
+        "sessions_directory": "./sessions",
+        "checkpoint_interval_seconds": 60,
+        "auto_save": true
+    },
+    "output": {
+        "directory": "./reports",
+        "formats": ["html", "markdown", "json"],
+        "include_transcript": true,
+        "include_timestamps": true
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "meeting_transcriber.log"
+    }
+}
