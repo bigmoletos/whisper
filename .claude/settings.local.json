@@ -40,7 +40,18 @@
       "Bash(ln:*)",
       "Bash(npm info:*)",
       "mcp__plugin_serena_serena__get_current_config",
-      "mcp__plugin_context7_context7__resolve-library-id"
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_playwright_playwright__browser_tabs",
+      "mcp__playwright__browser_tabs",
+      "mcp__plugin_serena_serena__activate_project",
+      "Bash(npx playwright:*)",
+      "Bash(export CHROME_PATH=\"/mnt/c/Program Files \\(x86\\)/Google/Chrome/Application/chrome.exe\")",
+      "Bash(npx @playwright/mcp@latest:*)",
+      "mcp__plugin_serena_serena__check_onboarding_performed",
+      "Bash(echo:*)",
+      "Bash(git fetch:*)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "Bash(python3 -c \"import sys, json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\(''''projects'''', {}\\).get\\(''''/mnt/c/programmation/whisper_local_STT'''', {}\\).get\\(''''mcpServers'''', {}\\), indent=2\\)\\)\")"
     ]
   }
 }
