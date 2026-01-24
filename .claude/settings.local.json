@@ -38,7 +38,9 @@
       "Bash(npm uninstall:*)",
       "Bash(npm install:*)",
       "Bash(ln:*)",
-      "Bash(npm info:*)"
+      "Bash(npm info:*)",
+      "mcp__plugin_serena_serena__get_current_config",
+      "mcp__plugin_context7_context7__resolve-library-id"
     ]
   }
 }
