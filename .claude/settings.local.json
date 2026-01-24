@@ -31,7 +31,14 @@
       "Bash(powershell.exe -Command \"Get-Command node | Select-Object -ExpandProperty Source\")",
       "Bash(powershell.exe -Command \"nvm list\")",
       "Bash(powershell.exe -Command \"where.exe node\")",
-      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Program Files\\\\nodejs'' -ErrorAction SilentlyContinue | Select-Object Name\")"
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Program Files\\\\nodejs'' -ErrorAction SilentlyContinue | Select-Object Name\")",
+      "Bash(claude:*)",
+      "Bash(npm view:*)",
+      "Bash(npm update:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)",
+      "Bash(ln:*)",
+      "Bash(npm info:*)"
     ]
   }
 }
