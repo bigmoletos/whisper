@@ -1,8 +1,37 @@
 {
   "permissions": {
     "allow": [
+      "Bash(git stash:*)",
+      "Bash(git pull:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
       "WebSearch",
-      "Bash(claude:*)"
+      "Bash(for file in *.py)",
+      "Bash(done)",
+      "Bash(pip install:*)",
+      "Bash(curl:*)",
+      "Bash(python -m meeting_assistant start --name \"Test Reunion\")",
+      "Bash(huggingface-cli whoami:*)",
+      "Bash(python -c \"from meeting_assistant.utils.env_loader import load_env_file; import os; load_env_file\\(''C:/Users/franck.desmedt/.secrets/api-keys.env''\\); token = os.environ.get\\(''TOKEN_HF'', ''NON TROUVE''\\); print\\(f''TOKEN_HF: {token[:10]}...'' if token != ''NON TROUVE'' else ''TOKEN_HF: NON TROUVE''\\)\")",
+      "Bash(python:*)",
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(\"C:\\\\programmation\\\\outils\\\\vtt\\\\whisper\\\\venv_whisper\\\\Scripts\\\\python.exe\" -m pip list)",
+      "Bash(findstr:*)",
+      "Bash(dir \"C:\\\\programmation\\\\outils\\\\vtt\\\\whisper\\\\venv_whisper\\\\Scripts\")",
+      "Bash(ollama list:*)",
+      "Bash(claude --version:*)",
+      "Bash(cmd.exe /c \"claude --version\")",
+      "Bash(powershell.exe -Command \"claude --version\")",
+      "Bash(powershell.exe -Command \"Get-Command claude | Select-Object -ExpandProperty Source\")",
+      "Bash(powershell.exe -Command \"npm update -g @anthropic-ai/claude-code\")",
+      "Bash(powershell.exe -Command \"node --version\")",
+      "Bash(powershell.exe -Command \"Get-Command node | Select-Object -ExpandProperty Source\")",
+      "Bash(powershell.exe -Command \"nvm list\")",
+      "Bash(powershell.exe -Command \"where.exe node\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Program Files\\\\nodejs'' -ErrorAction SilentlyContinue | Select-Object Name\")"
     ]
   }
 }
