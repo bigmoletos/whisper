@@ -21,6 +21,7 @@ from src.audio_capture import AudioCapture
 from src.whisper_transcriber import WhisperTranscriber
 from src.text_injector import TextInjector
 from src.keyboard_hotkey import HotkeyManager
+from src.text_corrector import load_corrector_from_config
 
 # Import des notifications
 try:
@@ -115,6 +116,7 @@ class WhisperSTTService:
         self.text_injector: Optional[TextInjector] = None
         self.hotkey_manager: Optional[HotkeyManager] = None
         self.notification_manager: Optional[NotificationManager] = None
+        self.text_corrector = None  # Module de correction post-transcription
 
         # État
         self.is_recording = False
@@ -271,6 +273,13 @@ class WhisperSTTService:
             else:
                 self.logger.warning("Module de notifications non disponible")
 
+            # Module de correction de texte (post-traitement)
+            self.text_corrector = load_corrector_from_config(self.config)
+            if self.text_corrector:
+                self.logger.info("Module de correction de texte initialisé")
+            else:
+                self.logger.info("Correction de texte désactivée")
+
         except Exception as e:
             self.logger.error(f"Erreur lors de l'initialisation des composants: {e}", exc_info=True)
             raise
@@ -349,6 +358,11 @@ class WhisperSTTService:
             # Transcrire
             self.logger.info("Transcription en cours...")
             text = self.transcriber.transcribe(audio_data, sample_rate=self.audio_capture.sample_rate)
+
+            # Correction orthographique et grammaticale (post-traitement)
+            if text and self.text_corrector:
+                self.logger.info("Correction du texte en cours...")
+                text = self.text_corrector.correct_text(text)
 
             if text:
                 # Injecter le texte
