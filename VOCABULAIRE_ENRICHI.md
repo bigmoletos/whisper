@@ -19,14 +19,59 @@
 - conflict, feature branch, hotfix, release branch
 - GitFlow, GitHub Flow, trunk-based development
 
+### 🚀 Migration & Modernisation (40+ termes)
+
+#### Frameworks Frontend
+- **Angular** : Angular, AngularJS, Angular CLI, ng, TypeScript
+- **React** : React, Next.js, Gatsby, Create React App
+- **Vue** : Vue.js, Nuxt.js, Vite
+- **Autres** : Svelte, SvelteKit, Solid.js
+
+#### Migration & Transformation
+- **Migration** : migration, modernisation, refactoring, legacy
+- **Complexité** : low-complexity, high-complexity, complexity analysis
+- **Automation** : automation, automated migration, code transformation
+- **Preuves formelles** : formal verification, proof assistant, theorem proving
+
+#### Outils de Migration
+- **Coq** : coq-of-js, Coq, proof assistant, formal methods
+- **OpenRewrite** : OpenRewrite, recipe, transformation, AST
+- **Strands Agent** : strands-agent, Amazon CodeWhisperer, Microsoft Copilot
+
+### 🤖 Intelligence Artificielle & Outils (50+ termes)
+
+#### IDE avec IA
+- **Kiro** : Kiro, Kiro IDE, agent hooks, MCP
+- **Cursor** : Cursor, Cursor IDE, AI pair programming
+- **VS Code** : Visual Studio Code, VS Code, Copilot, IntelliCode
+- **JetBrains** : IntelliJ IDEA, WebStorm, PyCharm, AI Assistant
+
+#### Agents & Assistants IA
+- **GitHub Copilot** : Copilot, GitHub Copilot, code completion
+- **Amazon** : CodeWhisperer, Amazon Q, AWS CodeGuru
+- **Microsoft** : Copilot, Azure OpenAI, Semantic Kernel
+- **Google** : Bard, Gemini, Vertex AI, ML Kit
+
+#### Model Context Protocol (MCP)
+- **MCP** : MCP, Model Context Protocol, MCP server, MCP client
+- **Skills** : skills, capabilities, tools, functions
+- **Agents** : autonomous agents, multi-agent systems, agent orchestration
+
+#### QA & Testing avec IA
+- **QA** : QA, quality assurance, automated testing, test generation
+- **AI Testing** : AI-powered testing, intelligent test automation
+- **Code Analysis** : static analysis, dynamic analysis, code intelligence
+
 ### 🧪 Tests & Qualité de code (50+ termes)
 
 #### Tests Frontend
 - **Frameworks** : Playwright, Selenium, Cypress, Puppeteer
+- **Angular Testing** : Jasmine, Karma, Protractor, Angular Testing Library
 - **Autres** : TestCafe, WebDriverIO
 
 #### Tests Backend
 - **Java** : JUnit, TestNG, Mockito, MockMvc, RestAssured, WireMock
+- **Python** : pytest, unittest, mock, requests-mock
 - **API** : Postman, Insomnia
 
 #### Tests E2E (End-to-End)
@@ -37,9 +82,9 @@
 - **Autres** : CodeQL, Fortify
 
 #### Linters & Formatters
-- **JavaScript/TypeScript** : ESLint, Prettier
+- **JavaScript/TypeScript** : ESLint, Prettier, TSLint
 - **Java** : Checkstyle, PMD, SpotBugs
-- **Python** : Pylint, Flake8
+- **Python** : Pylint, Flake8, Black
 - **Ruby** : RuboCop
 
 #### Coverage (Couverture de code)
@@ -62,6 +107,25 @@
 #### Orchestration Kubernetes
 - Kubernetes, OpenShift, Rancher, Nomad
 - ECS (AWS), AKS (Azure), GKE (Google), EKS (AWS)
+
+### 🛠️ Gestion de projet & Outils (30+ termes)
+
+#### Gestion de projet
+- **Jira** : Jira, Atlassian, ticket, issue, epic, story, sprint
+- **Autres** : Azure DevOps, GitHub Projects, Linear, Asana
+- **Méthodologies** : Agile, Scrum, Kanban, DevOps, SAFe
+
+#### Package Managers
+- **Node.js** : npm, yarn, pnpm, package.json, node_modules
+- **Java** : Maven, Gradle, Ant, pom.xml, build.gradle
+- **Python** : pip, conda, poetry, pipenv, requirements.txt
+- **Autres** : Composer (PHP), Cargo (Rust), Go modules
+
+#### Langages de programmation
+- **Java** : Java, Spring, Spring Boot, Hibernate, JPA
+- **Python** : Python, Django, Flask, FastAPI, pandas
+- **TypeScript** : TypeScript, JavaScript, Node.js, Deno, Bun
+- **Autres** : C#, Go, Rust, Kotlin, Scala
 
 ### 📄 Formats de fichiers (50+ extensions)
 
@@ -181,6 +245,37 @@ Helm déploie sur Kubernetes. [pause]
 Prometheus monitore l'application."
 ```
 
+#### Test 5 : Migration Angular avec IA
+```
+"Je migre le projet Angular. [pause]
+J'utilise OpenRewrite pour la transformation. [pause]
+Coq-of-js génère les preuves formelles. [pause]
+Strands-agent d'Amazon aide à l'automation. [pause]
+Kiro IDE avec MCP facilite le développement. [pause]
+Les skills d'IA réduisent la low-complexity. [pause]
+Jira track les tickets de migration."
+```
+
+#### Test 6 : Outils d'IA et développement
+```
+"J'ouvre Cursor IDE. [pause]
+GitHub Copilot suggère le code. [pause]
+Microsoft Copilot aide au debugging. [pause]
+Le MCP server fournit les capabilities. [pause]
+Les agents autonomes automatisent les tâches. [pause]
+VS Code avec IntelliCode améliore la QA."
+```
+
+#### Test 7 : Package managers et langages
+```
+"J'installe avec npm. [pause]
+Le package.json définit les dépendances. [pause]
+Maven compile le projet Java. [pause]
+pip installe les modules Python. [pause]
+TypeScript compile vers JavaScript. [pause]
+Le build.gradle configure Gradle."
+```
+
 ---
 
 ## 🎯 Résumé des améliorations
@@ -192,7 +287,10 @@ Prometheus monitore l'application."
 - ❌ Tests limités à JUnit/Mockito
 
 ### Après (nouvelles configs)
-- ✅ **150+ termes techniques**
+- ✅ **300+ termes techniques**
+- ✅ **40+ termes Migration & IA**
+- ✅ **50+ outils IA et IDE**
+- ✅ **30+ outils de gestion de projet**
 - ✅ **35+ termes Git/GitHub/Bitbucket**
 - ✅ **50+ formats de fichiers**
 - ✅ **50+ outils de test et qualité**
@@ -204,6 +302,9 @@ Prometheus monitore l'application."
 
 | Catégorie | Nombre de termes | Exemples clés |
 |-----------|------------------|---------------|
+| **Migration & IA** | 40+ | Angular, OpenRewrite, coq-of-js, strands-agent, MCP |
+| **IDE & Outils IA** | 50+ | Kiro, Cursor, VS Code, Copilot, skills, agents |
+| **Gestion projet** | 30+ | Jira, npm, Maven, TypeScript, Python, Java |
 | **Java/Spring** | 30+ | Spring Boot, Hibernate, JPA, Maven, Gradle |
 | **Git & VCS** | 35+ | GitHub, commit, push, merge, pull request |
 | **Tests** | 50+ | Playwright, Selenium, JUnit, SonarQube, Checkmarx |
@@ -213,7 +314,7 @@ Prometheus monitore l'application."
 | **Bases de données** | 10+ | PostgreSQL, MongoDB, Redis, MySQL, Oracle |
 | **Messaging** | 5+ | Kafka, RabbitMQ, ActiveMQ |
 
-**TOTAL : 200+ termes techniques** couverts dans vos configurations !
+**TOTAL : 300+ termes techniques** couverts dans vos configurations !
 
 ---
 
@@ -238,6 +339,18 @@ Prometheus monitore l'application."
 - Dites **"push"** comme "pouche"
 - Dites **"merge"** comme "meurge"
 - Dites **"branch"** comme "branche"
+
+### Pour les outils d'IA et migration
+- **Angular** : prononcez "ann-gou-laire"
+- **OpenRewrite** : prononcez "o-penne-ri-raïte"
+- **coq-of-js** : prononcez "coque-of-jay-esse"
+- **strands-agent** : prononcez "strands-a-jente"
+- **MCP** : prononcez "M-C-P" (épeler)
+- **Kiro** : prononcez "ki-ro"
+- **Cursor** : prononcez "keur-seur"
+- **TypeScript** : prononcez "taïpe-scripte"
+- **npm** : prononcez "N-P-M" (épeler)
+- **Jira** : prononcez "ji-ra"
 
 ### Pour les outils
 - **Playwright** : prononcez "pleï-raïte"
