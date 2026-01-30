@@ -171,16 +171,25 @@ class ThreadSafeRecordingPopup:
             if not self.ui_thread or not self.ui_thread.is_alive():
                 self.ui_thread = threading.Thread(target=self._ui_worker, daemon=True)
                 self.ui_thread.start()
-                time.sleep(0.2)  # Laisser plus de temps au thread de démarrer
+                time.sleep(0.3)  # Laisser plus de temps au thread de démarrer
         
-        # Vider la queue des anciennes commandes
+        # NETTOYAGE COMPLET de la queue pour éviter les interférences
+        command_count = 0
         while not self.command_queue.empty():
             try:
-                self.command_queue.get_nowait()
+                old_command = self.command_queue.get_nowait()
+                command_count += 1
             except queue.Empty:
                 break
         
+        if command_count > 0:
+            print(f"[DEBUG] Nettoyé {command_count} anciennes commandes de la queue")
+        
+        # Attendre un peu pour s'assurer que le thread est prêt
+        time.sleep(0.1)
+        
         self.command_queue.put("show_recording")
+        print("[DEBUG] Commande show_recording envoyée")
     
     def show_processing(self):
         """Change en mode traitement (thread-safe)"""

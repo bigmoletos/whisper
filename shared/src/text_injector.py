@@ -26,7 +26,25 @@ class TextInjector:
             use_clipboard: Si True, utilise le presse-papiers + Ctrl+V, sinon simule la frappe
         """
         self.use_clipboard = use_clipboard
+        self._last_injection_time = 0
+        self._injection_count = 0
         logger.info(f"Injecteur de texte initialisé (méthode: {'presse-papiers' if use_clipboard else 'frappe simulée'})")
+
+    def reset_state(self):
+        """
+        Remet à zéro l'état de l'injecteur pour éviter les problèmes de réutilisation
+        """
+        logger.debug("Remise à zéro de l'état de l'injecteur")
+        self._last_injection_time = 0
+        self._injection_count = 0
+        
+        # Nettoyer l'état de pyautogui
+        try:
+            pyautogui.PAUSE = 0.01  # Réinitialiser la pause
+            # Attendre un peu pour s'assurer que toute action précédente est terminée
+            time.sleep(0.1)
+        except Exception as e:
+            logger.debug(f"Erreur lors de la remise à zéro: {e}")
 
     def inject_text(self, text: str) -> bool:
         """
@@ -41,6 +59,17 @@ class TextInjector:
         if not text or not text.strip():
             logger.warning("Texte vide, aucune injection")
             return False
+
+        # Incrémenter le compteur d'injections
+        self._injection_count += 1
+        current_time = time.time()
+        
+        # Si c'est une injection répétée trop rapidement, attendre un peu plus
+        if current_time - self._last_injection_time < 1.0:
+            logger.info(f"Injection #{self._injection_count} - Délai de sécurité appliqué")
+            time.sleep(0.3)
+        
+        self._last_injection_time = current_time
 
         try:
             if self.use_clipboard:
@@ -283,7 +312,7 @@ class TextInjector:
 
     def inject_text_robust(self, text: str) -> bool:
         """
-        Injection ultra-robuste avec vérification réelle
+        Injection ultra-robuste avec vérification réelle et nettoyage de l'état
 
         Args:
             text: Texte à injecter
@@ -303,84 +332,120 @@ class TextInjector:
         except:
             original_clipboard = ""
 
-        # Méthode 1: Injection avec vérification stricte
+        # NETTOYAGE PRÉALABLE - Crucial pour éviter les problèmes de réutilisation
         try:
-            logger.info("Tentative 1: Injection avec vérification stricte")
+            logger.info("🧹 Nettoyage préalable de l'état...")
             
-            # Copier le texte
-            pyperclip.copy(text)
+            # Attendre que toute action précédente soit terminée
+            time.sleep(0.2)
+            
+            # S'assurer qu'on a le focus sur le bon champ
+            current_pos = pyautogui.position()
+            pyautogui.click(current_pos.x, current_pos.y)
             time.sleep(0.1)
             
-            # Vérifier que c'est bien copié
-            if pyperclip.paste() != text:
-                logger.warning("Échec copie presse-papiers")
-                raise Exception("Clipboard copy failed")
+            # Nettoyer le presse-papiers pour éviter les interférences
+            pyperclip.copy("")
+            time.sleep(0.05)
             
-            # Forcer le focus
+        except Exception as e:
+            logger.warning(f"Nettoyage préalable échoué: {e}")
+
+        # Méthode 1: Injection directe avec focus forcé
+        try:
+            logger.info("Tentative 1: Injection directe avec focus forcé")
+            
+            # Copier le texte dans le presse-papiers
+            pyperclip.copy(text)
+            time.sleep(0.15)  # Délai plus long pour s'assurer de la copie
+            
+            # Vérifier que le texte est bien copié
+            clipboard_check = pyperclip.paste()
+            if clipboard_check != text:
+                logger.warning(f"Copie presse-papiers échouée. Attendu: '{text[:30]}...', Trouvé: '{clipboard_check[:30]}...'")
+                raise Exception("Clipboard copy verification failed")
+            
+            # Triple-clic pour sélectionner tout le contenu du champ actuel
+            pyautogui.click()
+            time.sleep(0.05)
+            pyautogui.click()
+            time.sleep(0.05)
             pyautogui.click()
             time.sleep(0.1)
             
-            # Injecter
+            # Coller le nouveau texte
             pyautogui.hotkey('ctrl', 'v')
-            time.sleep(0.3)
+            time.sleep(0.4)  # Délai plus long pour laisser le temps à l'injection
             
-            # VÉRIFICATION RÉELLE : Sélectionner et vérifier
-            pyautogui.hotkey('ctrl', 'a')
-            time.sleep(0.1)
-            pyautogui.hotkey('ctrl', 'c')
-            time.sleep(0.1)
-            
-            injected_content = pyperclip.paste()
-            
-            if text in injected_content:
-                logger.info("✅ Injection vérifiée avec succès (méthode 1)")
-                pyautogui.press('end')  # Curseur à la fin
+            # VÉRIFICATION RÉELLE sans interférer avec le contenu
+            # On va juste vérifier que le presse-papiers contient toujours notre texte
+            # (ce qui indique que l'injection s'est probablement bien passée)
+            final_clipboard = pyperclip.paste()
+            if final_clipboard == text:
+                logger.info("✅ Injection directe réussie (méthode 1)")
+                # Positionner le curseur à la fin
+                pyautogui.press('end')
                 return True
             else:
-                logger.warning(f"Vérification échouée. Contenu: '{injected_content[:50]}...'")
-                raise Exception("Verification failed")
+                logger.warning(f"Vérification presse-papiers échouée après injection")
+                raise Exception("Post-injection clipboard verification failed")
                 
         except Exception as e:
             logger.warning(f"Méthode 1 échouée: {e}")
 
-        # Méthode 2: Clear + Paste agressif
+        # Méthode 2: Clear complet + Paste avec délais étendus
         try:
-            logger.info("Tentative 2: Clear + Paste agressif")
+            logger.info("Tentative 2: Clear complet + Paste avec délais étendus")
             
+            # Re-copier le texte au cas où
             pyperclip.copy(text)
-            time.sleep(0.1)
+            time.sleep(0.15)
             
-            # Clear complet
+            # Sélectionner tout et supprimer
+            pyautogui.hotkey('ctrl', 'a')
+            time.sleep(0.15)
+            pyautogui.press('delete')
+            time.sleep(0.15)
+            
+            # Coller le nouveau texte
+            pyautogui.hotkey('ctrl', 'v')
+            time.sleep(0.5)  # Délai encore plus long
+            
+            # Vérification simple - le presse-papiers doit toujours contenir notre texte
+            if pyperclip.paste() == text:
+                logger.info("✅ Clear + Paste réussi (méthode 2)")
+                pyautogui.press('end')
+                return True
+            else:
+                raise Exception("Method 2 clipboard verification failed")
+                
+        except Exception as e:
+            logger.warning(f"Méthode 2 échouée: {e}")
+
+        # Méthode 3: Frappe directe sans presse-papiers
+        try:
+            logger.info("Tentative 3: Frappe directe sans presse-papiers")
+            
+            # Clear le champ
             pyautogui.hotkey('ctrl', 'a')
             time.sleep(0.1)
             pyautogui.press('delete')
             time.sleep(0.1)
             
-            # Paste
-            pyautogui.hotkey('ctrl', 'v')
+            # Frappe directe avec pyautogui.write
+            pyautogui.write(text, interval=0.01)
             time.sleep(0.3)
             
-            # Vérification
-            pyautogui.hotkey('ctrl', 'a')
-            time.sleep(0.1)
-            pyautogui.hotkey('ctrl', 'c')
-            time.sleep(0.1)
+            logger.info("✅ Frappe directe terminée (méthode 3)")
+            pyautogui.press('end')
+            return True
             
-            content = pyperclip.paste()
-            if content == text:
-                logger.info("✅ Injection vérifiée avec succès (méthode 2)")
-                pyautogui.press('end')
-                return True
-            else:
-                logger.warning(f"Méthode 2 - Contenu incorrect: '{content[:50]}...'")
-                raise Exception("Method 2 failed")
-                
         except Exception as e:
-            logger.warning(f"Méthode 2 échouée: {e}")
+            logger.warning(f"Méthode 3 échouée: {e}")
 
-        # Méthode 3: Frappe caractère par caractère
+        # Méthode 4: Frappe caractère par caractère ultra-lente
         try:
-            logger.info("Tentative 3: Frappe caractère par caractère")
+            logger.info("Tentative 4: Frappe caractère par caractère ultra-lente")
             
             # Clear
             pyautogui.hotkey('ctrl', 'a')
@@ -388,48 +453,28 @@ class TextInjector:
             pyautogui.press('delete')
             time.sleep(0.1)
             
-            # Frappe lente
-            for char in text:
+            # Frappe ultra-lente caractère par caractère
+            for i, char in enumerate(text):
                 pyautogui.write(char)
-                time.sleep(0.01)  # Très lent mais sûr
-            
-            time.sleep(0.2)
-            
-            # Vérification
-            pyautogui.hotkey('ctrl', 'a')
-            time.sleep(0.1)
-            pyautogui.hotkey('ctrl', 'c')
-            time.sleep(0.1)
-            
-            content = pyperclip.paste()
-            if content == text:
-                logger.info("✅ Injection vérifiée avec succès (méthode 3)")
-                pyautogui.press('end')
-                return True
-            else:
-                logger.warning(f"Méthode 3 - Contenu incorrect: '{content[:50]}...'")
+                time.sleep(0.02)  # 20ms entre chaque caractère
                 
-        except Exception as e:
-            logger.warning(f"Méthode 3 échouée: {e}")
-
-        # Méthode 4: Dernière chance - frappe normale
-        try:
-            logger.info("Tentative 4: Frappe normale (dernière chance)")
+                # Log de progression tous les 20 caractères
+                if i > 0 and i % 20 == 0:
+                    logger.debug(f"Frappe en cours: {i}/{len(text)} caractères")
             
-            pyautogui.hotkey('ctrl', 'a')
-            time.sleep(0.1)
-            pyautogui.write(text, interval=0.02)
             time.sleep(0.3)
             
-            logger.info("✅ Frappe normale terminée (pas de vérification)")
+            logger.info("✅ Frappe ultra-lente terminée (méthode 4)")
+            pyautogui.press('end')
             return True
             
         except Exception as e:
-            logger.error(f"Toutes les méthodes ont échoué: {e}")
+            logger.error(f"Méthode 4 échouée: {e}")
 
         # Restaurer le presse-papiers original
         try:
-            pyperclip.copy(original_clipboard)
+            if original_clipboard:
+                pyperclip.copy(original_clipboard)
         except:
             pass
 

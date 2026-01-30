@@ -440,15 +440,18 @@ class WhisperSTTService:
                 self.logger.info(f"Texte corrigé: '{original_text}' -> '{text}'")
 
             if text and text.strip():
-                # Injecter le texte
+                # SOLUTION CRITIQUE : Réinitialiser l'état de l'injecteur avant chaque injection
                 if self.text_injector:
+                    self.logger.info("🔄 Réinitialisation de l'état de l'injecteur")
+                    self.text_injector.reset_state()
+                    
                     self.logger.info(f"Injection du texte: '{text[:50]}...' (longueur: {len(text)})")
                     
                     # Utiliser la méthode robuste d'injection
                     success = self.text_injector.inject_text_robust(text)
                     
                     if success:
-                        self.logger.info("Texte injecté avec succès")
+                        self.logger.info("✅ Texte injecté avec succès")
                         # Afficher notification de succès (priorité à la pop-up)
                         ui_config = self.config.get("ui", {})
                         if not (RECORDING_POPUP_AVAILABLE and ui_config.get("show_recording_popup", True)):
@@ -456,7 +459,7 @@ class WhisperSTTService:
                             if NOTIFICATIONS_AVAILABLE and self.notification_manager:
                                 self.notification_manager.show_status_notification("ready", f"Texte: {text[:100]}...")
                     else:
-                        self.logger.error("Échec de l'injection du texte")
+                        self.logger.error("❌ Échec de l'injection du texte")
                         # Cacher la pop-up en cas d'erreur
                         ui_config = self.config.get("ui", {})
                         if RECORDING_POPUP_AVAILABLE and ui_config.get("show_recording_popup", True):
@@ -489,10 +492,15 @@ class WhisperSTTService:
 
         finally:
             self.is_processing = False
-            # Cacher la pop-up à la fin du traitement
+            # Cacher la pop-up à la fin du traitement avec délai pour laisser voir le résultat
             ui_config = self.config.get("ui", {})
             if RECORDING_POPUP_AVAILABLE and ui_config.get("show_recording_popup", True):
-                hide_popup()
+                # Délai de 1.5 secondes pour laisser voir le résultat
+                import threading
+                def delayed_hide():
+                    time.sleep(1.5)
+                    hide_popup()
+                threading.Thread(target=delayed_hide, daemon=True).start()
 
     def start(self) -> None:
         """Démarre le service"""
