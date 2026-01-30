@@ -45,6 +45,15 @@ try:
 except ImportError:
     WHISPER_CPP_AVAILABLE = False
 
+# Import de la pop-up d'enregistrement
+try:
+    from src.recording_popup import show_recording, show_processing, hide_popup, cleanup_popup
+    RECORDING_POPUP_AVAILABLE = True
+    print("[DEBUG] Module recording_popup importé avec succès")
+except ImportError as e:
+    RECORDING_POPUP_AVAILABLE = False
+    print(f"[DEBUG] Module recording_popup non disponible: {e}")
+
 # Configuration du logging
 def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None):
     """
@@ -327,11 +336,36 @@ class WhisperSTTService:
                 self.is_recording = True
                 self.logger.info("Enregistrement démarré (relâchez le raccourci pour arrêter)")
                 
-                # Afficher une notification d'enregistrement
-                if NOTIFICATIONS_AVAILABLE and self.notification_manager:
-                    self.notification_manager.show_status_notification("recording")
+                # Afficher la pop-up d'enregistrement (priorité sur les notifications)
+                ui_config = self.config.get("ui", {})
+                popup_enabled = ui_config.get("show_recording_popup", True)
+                
+                self.logger.info(f"[DEBUG] RECORDING_POPUP_AVAILABLE: {RECORDING_POPUP_AVAILABLE}")
+                self.logger.info(f"[DEBUG] show_recording_popup config: {popup_enabled}")
+                
+                if RECORDING_POPUP_AVAILABLE and popup_enabled:
+                    self.logger.info("[DEBUG] Affichage de la nouvelle pop-up")
+                    try:
+                        show_recording()
+                        self.logger.info("[DEBUG] Pop-up d'enregistrement affichée avec succès")
+                        # Ne pas afficher de notification si la pop-up fonctionne
+                    except Exception as e:
+                        self.logger.error(f"[DEBUG] Erreur affichage pop-up: {e}", exc_info=True)
+                        # Fallback sur notification en cas d'erreur pop-up
+                        if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                            self.notification_manager.show_status_notification("recording")
+                else:
+                    self.logger.info("[DEBUG] Pop-up désactivée, utilisation des notifications")
+                    # Utiliser les notifications si pop-up désactivée
+                    if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                        self.notification_manager.show_status_notification("recording")
         except Exception as e:
             self.logger.error(f"Erreur lors du démarrage de l'enregistrement: {e}", exc_info=True)
+            # Cacher la pop-up en cas d'erreur
+            ui_config = self.config.get("ui", {})
+            if RECORDING_POPUP_AVAILABLE and ui_config.get("show_recording_popup", True):
+                hide_popup()
+            # Afficher notification d'erreur
             if NOTIFICATIONS_AVAILABLE and self.notification_manager:
                 self.notification_manager.show_status_notification("error", str(e))
             self.is_recording = False
@@ -344,9 +378,15 @@ class WhisperSTTService:
         self.is_processing = True
         self.is_recording = False
 
-        # Afficher une notification de traitement
-        if NOTIFICATIONS_AVAILABLE and self.notification_manager:
-            self.notification_manager.show_status_notification("processing")
+        # Changer la pop-up en mode traitement (priorité sur notifications)
+        ui_config = self.config.get("ui", {})
+        if RECORDING_POPUP_AVAILABLE and ui_config.get("show_recording_popup", True):
+            show_processing()
+            # Ne pas afficher de notification si la pop-up fonctionne
+        else:
+            # Utiliser les notifications si pop-up désactivée
+            if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                self.notification_manager.show_status_notification("processing")
 
         try:
             # Arrêter l'enregistrement et récupérer l'audio
@@ -360,16 +400,28 @@ class WhisperSTTService:
 
             if len(audio_data) == 0:
                 self.logger.warning("Aucun audio capturé")
-                if NOTIFICATIONS_AVAILABLE and self.notification_manager:
-                    self.notification_manager.show_status_notification("error", "Aucun audio capturé")
                 self.is_processing = False
+                # Cacher la pop-up si pas d'audio
+                ui_config = self.config.get("ui", {})
+                if RECORDING_POPUP_AVAILABLE and ui_config.get("show_recording_popup", True):
+                    hide_popup()
+                else:
+                    # Utiliser notification si pop-up désactivée
+                    if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                        self.notification_manager.show_status_notification("error", "Aucun audio capturé")
                 return
 
             # Transcrire avec Whisper
             if not self.transcriber:
                 self.logger.error("Module Whisper non initialisé")
-                if NOTIFICATIONS_AVAILABLE and self.notification_manager:
-                    self.notification_manager.show_status_notification("error", "Module Whisper non initialisé")
+                # Cacher la pop-up en cas d'erreur
+                ui_config = self.config.get("ui", {})
+                if RECORDING_POPUP_AVAILABLE and ui_config.get("show_recording_popup", True):
+                    hide_popup()
+                else:
+                    # Utiliser notification si pop-up désactivée
+                    if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                        self.notification_manager.show_status_notification("error", "Module Whisper non initialisé")
                 return
 
             # Charger le modèle si nécessaire
@@ -378,39 +430,69 @@ class WhisperSTTService:
             # Transcrire
             self.logger.info("Transcription en cours...")
             text = self.transcriber.transcribe(audio_data, sample_rate=self.audio_capture.sample_rate)
+            self.logger.info(f"Texte transcrit: '{text}' (longueur: {len(text) if text else 0})")
 
             # Correction orthographique et grammaticale (post-traitement)
             if text and self.text_corrector:
                 self.logger.info("Correction du texte en cours...")
+                original_text = text
                 text = self.text_corrector.correct_text(text)
+                self.logger.info(f"Texte corrigé: '{original_text}' -> '{text}'")
 
-            if text:
+            if text and text.strip():
                 # Injecter le texte
                 if self.text_injector:
-                    self.logger.info(f"Injection du texte: '{text[:50]}...'")
-                    success = self.text_injector.inject_text(text)
+                    self.logger.info(f"Injection du texte: '{text[:50]}...' (longueur: {len(text)})")
+                    
+                    # Utiliser la méthode robuste d'injection
+                    success = self.text_injector.inject_text_robust(text)
+                    
                     if success:
                         self.logger.info("Texte injecté avec succès")
-                        if NOTIFICATIONS_AVAILABLE and self.notification_manager:
-                            self.notification_manager.show_status_notification("ready", f"Texte: {text[:100]}...")
+                        # Afficher notification de succès (priorité à la pop-up)
+                        ui_config = self.config.get("ui", {})
+                        if not (RECORDING_POPUP_AVAILABLE and ui_config.get("show_recording_popup", True)):
+                            # Utiliser notification seulement si pop-up désactivée
+                            if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                                self.notification_manager.show_status_notification("ready", f"Texte: {text[:100]}...")
                     else:
                         self.logger.error("Échec de l'injection du texte")
+                        # Cacher la pop-up en cas d'erreur
+                        ui_config = self.config.get("ui", {})
+                        if RECORDING_POPUP_AVAILABLE and ui_config.get("show_recording_popup", True):
+                            hide_popup()
+                        # Afficher notification d'erreur
                         if NOTIFICATIONS_AVAILABLE and self.notification_manager:
                             self.notification_manager.show_status_notification("error", "Échec de l'injection du texte")
                 else:
                     self.logger.error("Module d'injection de texte non initialisé")
+                    # Cacher la pop-up en cas d'erreur
+                    ui_config = self.config.get("ui", {})
+                    if RECORDING_POPUP_AVAILABLE and ui_config.get("show_recording_popup", True):
+                        hide_popup()
+                    # Afficher notification d'erreur
                     if NOTIFICATIONS_AVAILABLE and self.notification_manager:
                         self.notification_manager.show_status_notification("error", "Module d'injection de texte non initialisé")
             else:
-                self.logger.warning("Aucun texte transcrit")
-                if NOTIFICATIONS_AVAILABLE and self.notification_manager:
-                    self.notification_manager.show_status_notification("error", "Aucun texte transcrit")
+                self.logger.warning(f"Aucun texte transcrit ou texte vide. Texte brut: '{text}'")
+                # Cacher la pop-up si pas de texte
+                ui_config = self.config.get("ui", {})
+                if RECORDING_POPUP_AVAILABLE and ui_config.get("show_recording_popup", True):
+                    hide_popup()
+                else:
+                    # Utiliser notification si pop-up désactivée
+                    if NOTIFICATIONS_AVAILABLE and self.notification_manager:
+                        self.notification_manager.show_status_notification("error", "Aucun texte transcrit")
 
         except Exception as e:
             self.logger.error(f"Erreur lors du traitement de l'enregistrement: {e}", exc_info=True)
 
         finally:
             self.is_processing = False
+            # Cacher la pop-up à la fin du traitement
+            ui_config = self.config.get("ui", {})
+            if RECORDING_POPUP_AVAILABLE and ui_config.get("show_recording_popup", True):
+                hide_popup()
 
     def start(self) -> None:
         """Démarre le service"""
@@ -464,6 +546,14 @@ class WhisperSTTService:
         # Arrêter l'enregistrement si en cours
         if self.is_recording and self.audio_capture:
             self.audio_capture.stop_recording()
+
+        # Nettoyer la popup
+        if RECORDING_POPUP_AVAILABLE:
+            try:
+                cleanup_popup()
+                self.logger.info("Pop-up nettoyée")
+            except Exception as e:
+                self.logger.warning(f"Erreur nettoyage popup: {e}")
 
         # Désenregistrer les raccourcis
         if self.hotkey_manager:

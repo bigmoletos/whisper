@@ -29,5 +29,16 @@
     "logging": {
         "level": "INFO",
         "file": "voice_transcriber_turbo.log"
+    },
+    "ui": {
+        "show_recording_popup": true,
+        "popup_position": "top-right",
+        "popup_timeout_ms": 3000,
+        "show_confidence_score": true
+    },
+    "performance": {
+        "max_memory_mb": 2048,
+        "enable_model_cache": true,
+        "fallback_engines": ["whisper", "whisper-cpp"]
     }
 }
