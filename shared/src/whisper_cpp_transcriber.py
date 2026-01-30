@@ -20,7 +20,7 @@ try:
     WHISPER_CPP_AVAILABLE = True
 except ImportError:
     WHISPER_CPP_AVAILABLE = False
-    logger.warning("whispercpp non disponible, le module ne fonctionnera pas")
+    # Module optionnel - pas d'avertissement si non disponible
 
 class WhisperCppTranscriber:
     """Transcription utilisant Whisper.cpp pour des performances optimales"""

@@ -2,12 +2,23 @@
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
-:: Vérification rapide et silencieuse du système
-py -3.12 scripts\quick_check.py >nul 2>&1
+:: Vérification rapide et silencieuse du système (désactivée - script déplacé)
+:: py -3.12 scripts\quick_check.py >nul 2>&1
+:: if errorlevel 1 (
+::     echo.
+::     echo  [INFO] Première utilisation ou problème détecté
+::     echo  [INFO] Utilisez [U] pour vérification système complète
+::     echo.
+::     timeout /t 3 >nul
+:: )
+
+:: Vérification spéciale NumPy/Numba (problème d'isolation environnement)
+py -3.12 -c "import numpy; import numba; assert numpy.__version__ <= '2.3'" >nul 2>&1
 if errorlevel 1 (
     echo.
-    echo  [INFO] Première utilisation ou problème détecté
-    echo  [INFO] Utilisez [U] pour vérification système complète
+    echo  [ATTENTION] Problème de compatibilité NumPy/Numba détecté
+    echo  [INFO] NumPy 2.4 global incompatible avec Numba
+    echo  [SOLUTION] Utilisez [E] pour environnement isolé ou [I] pour correction
     echo.
     timeout /t 3 >nul
 )
@@ -35,6 +46,12 @@ echo  ║  [2] Voice-to-Text TURBO (Mode Fallback)                        ║
 echo  ║      Version de secours avec Whisper standard                    ║
 echo  ║      • Fonctionne sur CPU si problèmes GPU                       ║
 echo  ║      • Plus lent mais plus compatible                             ║
+echo  ║                                                                  ║
+echo  ║  [E] Voice-to-Text TURBO (Environnement Isolé)                  ║
+echo  ║      Solution pour problèmes NumPy/Numba                         ║
+echo  ║      • Environnement virtuel complètement isolé                  ║
+echo  ║      • NumPy 2.3 compatible avec Numba                           ║
+echo  ║      • Résout les conflits avec autres projets Python            ║
 echo  ║                                                                  ║
 echo  ╠══════════════════════════════════════════════════════════════════╣
 echo  ║                                                                  ║
@@ -69,15 +86,18 @@ echo  ╠═══════════════════════�
 echo  ║                                                                  ║
 echo  ║  [U] Vérification système complète                               ║
 echo  ║  [I] Installation des dépendances                                ║
+echo  ║  [C] Correction isolation environnement (NumPy/Numba)           ║
 echo  ║  [D] Documentation                                               ║
 echo  ║  [Q] Quitter                                                     ║
 echo  ║                                                                  ║
 echo  ╚══════════════════════════════════════════════════════════════════╝
 echo.
-set /p choice="  Votre choix [1-4/V/U/I/D/Q] : "
+set /p choice="  Votre choix [1-4/E/V/U/I/C/D/Q] : "
 
 if /i "%choice%"=="1" goto voice_turbo_direct
 if /i "%choice%"=="2" goto voice_turbo_fallback
+if /i "%choice%"=="E" goto voice_turbo_isolated
+if /i "%choice%"=="e" goto voice_turbo_isolated
 if /i "%choice%"=="3" goto meeting
 if /i "%choice%"=="4" goto meeting_pro
 if /i "%choice%"=="V" goto voice_adaptation
@@ -86,6 +106,8 @@ if /i "%choice%"=="U" goto system_check
 if /i "%choice%"=="u" goto system_check
 if /i "%choice%"=="I" goto install_menu
 if /i "%choice%"=="i" goto install_menu
+if /i "%choice%"=="C" goto fix_isolation
+if /i "%choice%"=="c" goto fix_isolation
 if /i "%choice%"=="D" goto documentation
 if /i "%choice%"=="d" goto documentation
 if /i "%choice%"=="Q" goto quit
@@ -105,18 +127,129 @@ echo.
 echo  Lancement direct de Voice-to-Text Turbo avec Faster-Whisper
 echo  Configuration optimisée : CUDA + large-v3 + vocabulaire technique
 echo.
-if exist "%~dp0launch_turbo_direct.bat" (
-    call "%~dp0launch_turbo_direct.bat"
-) else (
-    echo  [INFO] Lancement direct intégré...
+
+:: Vérifier d'abord la compatibilité NumPy/Numba
+py -3.12 -c "import numpy; import numba; assert numpy.__version__ <= '2.3'" >nul 2>&1
+if errorlevel 1 (
+    echo  [ATTENTION] Problème de compatibilité NumPy/Numba détecté
+    echo  [INFO] Basculement automatique vers l'environnement isolé...
     echo.
-    cd /d "%~dp0"
-    py -3.12 shared\src\main.py --config projects\voice-to-text-turbo\config.json
+    goto voice_turbo_isolated
+)
+
+echo  [INFO] Lancement direct intégré...
+echo.
+cd /d "%~dp0"
+py -3.12 shared\src\main.py --config projects\voice-to-text-turbo\config.json
+if errorlevel 1 (
+    echo.
+    echo  [ERREUR] Le programme s'est terminé avec une erreur
+    echo  [INFO] Essayez l'option [E] pour l'environnement isolé
+    pause
+)
+goto end
+
+:voice_turbo_isolated
+cls
+echo.
+echo  Voice-to-Text TURBO (Environnement Isolé)...
+echo  ─────────────────────────────────────────────
+echo.
+echo  Cette version utilise un environnement virtuel complètement isolé
+echo  pour résoudre les problèmes de compatibilité NumPy/Numba.
+echo.
+
+:: Vérifier si l'environnement isolé existe
+if not exist "%~dp0venv_vtt_isolated\Scripts\activate.bat" (
+    echo  [INFO] Environnement isolé non trouvé - Installation requise...
+    echo.
+    echo  [ERREUR] Veuillez d'abord exécuter l'option [I] pour installer VTT
+    echo  [INFO] Puis choisissez l'option de correction d'isolation
+    pause
+    goto menu
+)
+
+echo  [INFO] Activation de l'environnement virtuel isolé...
+call "%~dp0venv_vtt_isolated\Scripts\activate.bat"
+
+echo  [INFO] Vérification des versions...
+python -c "import numpy; print(f'NumPy: {numpy.__version__}')" 2>nul
+if errorlevel 1 (
+    echo  [ERREUR] NumPy non disponible dans l'environnement isolé
+    echo  [SOLUTION] Exécutez [C] pour corriger l'isolation
+    pause
+    goto menu
+)
+
+python -c "import numba; print(f'Numba: {numba.__version__}')" 2>nul
+if errorlevel 1 (
+    echo  [ERREUR] Numba non disponible dans l'environnement isolé
+    echo  [SOLUTION] Exécutez [C] pour corriger l'isolation
+    pause
+    goto menu
+)
+
+echo  [INFO] Lancement de Voice-to-Text TURBO (environnement isolé)...
+echo.
+cd /d "%~dp0"
+python shared\src\main.py --config projects\voice-to-text-turbo\config.json
+if errorlevel 1 (
+    echo.
+    echo  [ERREUR] Le programme s'est terminé avec une erreur
+    echo  [INFO] Vérifiez voice_transcriber_turbo.log pour plus de détails
+    pause
+)
+goto end
+
+:fix_isolation
+cls
+echo.
+echo  ╔══════════════════════════════════════════════════════════════════╗
+echo  ║              CORRECTION ISOLATION ENVIRONNEMENT                 ║
+echo  ║           Résolution problème NumPy 2.4 / Numba                 ║
+echo  ╚══════════════════════════════════════════════════════════════════╝
+echo.
+echo  [PROBLÈME DÉTECTÉ]
+echo  NumPy 2.4 installé globalement est incompatible avec Numba
+echo  qui nécessite NumPy 2.3 ou inférieur.
+echo.
+echo  [SOLUTION]
+echo  Création d'un environnement virtuel complètement isolé avec
+echo  les versions compatibles de tous les packages.
+echo.
+set /p confirm="  Continuer ? [O/N] : "
+if /i not "%confirm%"=="O" goto menu
+
+echo.
+echo  [INFO] Lancement du script d'installation unifié...
+if exist "%~dp0scripts\install_vtt.bat" (
+    call "%~dp0scripts\install_vtt.bat"
+) else (
+    echo  [ERREUR] Script install_vtt.bat non trouvé
+    echo  [INFO] Veuillez vérifier l'installation de VTT
+)
+echo.
+pause
+goto menu
+cls
+echo.
+echo  Voice-to-Text TURBO (Mode Fallback)...
+echo  ──────────────────────────────────────
+echo.
+echo  Cette version utilise Whisper standard au lieu de Faster-Whisper
+echo  pour éviter les problèmes de compatibilité.
+echo.
+if exist "%~dp0projects\voice-to-text-turbo\start_fallback.bat" (
+    call "%~dp0projects\voice-to-text-turbo\start_fallback.bat"
     if errorlevel 1 (
         echo.
         echo  [ERREUR] Le programme s'est terminé avec une erreur
+        echo  [INFO] Vérifiez voice_transcriber_fallback.log
         pause
     )
+) else (
+    echo  [ERREUR] Script start_fallback.bat non trouvé
+    pause
 )
 goto end
 
@@ -167,14 +300,10 @@ echo [OK] Python 3.12 détecté
 echo [2/6] Vérification modules Python de base...
 py -3.12 -c "import json, logging, pathlib, numpy, sounddevice, pyautogui, keyboard, pyperclip" >nul 2>&1
 if errorlevel 1 (
-    echo [MANQUANT] Modules de base manquants - Installation automatique...
-    if exist "%~dp0scripts\install.bat" (
-        call "%~dp0scripts\install.bat"
-    ) else (
-        echo [ERREUR] Script install.bat non trouvé
-        pause
-        goto menu
-    )
+    echo [MANQUANT] Modules de base manquants
+    echo [INFO] Utilisez l'option [I] pour installer les dépendances
+    pause
+    goto menu
 ) else (
     echo [OK] Modules de base présents
 )
@@ -183,22 +312,18 @@ if errorlevel 1 (
 echo [3/6] Vérification PyTorch et CUDA...
 py -3.12 -c "import torch; print('CUDA:', torch.cuda.is_available())" >nul 2>&1
 if errorlevel 1 (
-    echo [MANQUANT] PyTorch manquant - Installation automatique...
-    if exist "%~dp0fix_cuda_complete.bat" (
-        call "%~dp0fix_cuda_complete.bat"
-    ) else (
-        echo [ERREUR] Script fix_cuda_complete.bat non trouvé
-        pause
-        goto menu
-    )
+    echo [MANQUANT] PyTorch manquant
+    echo [INFO] Utilisez l'option [I] pour installer les dépendances
+    pause
+    goto menu
 ) else (
     :: Vérifier si CUDA fonctionne correctement
     py -3.12 -c "import torch; assert torch.cuda.is_available()" >nul 2>&1
     if errorlevel 1 (
-        echo [PROBLÈME] CUDA détecté mais non fonctionnel - Correction automatique...
-        if exist "%~dp0fix_cuda_complete.bat" (
-            call "%~dp0fix_cuda_complete.bat"
-        )
+        echo [PROBLÈME] CUDA détecté mais non fonctionnel
+        echo [INFO] Utilisez l'option [I] pour corriger l'installation
+        pause
+        goto menu
     ) else (
         echo [OK] PyTorch avec CUDA fonctionnel
     )
@@ -208,14 +333,10 @@ if errorlevel 1 (
 echo [4/6] Vérification Faster-Whisper...
 py -3.12 -c "import faster_whisper; faster_whisper.WhisperModel('tiny', device='cuda', compute_type='float16')" >nul 2>&1
 if errorlevel 1 (
-    echo [PROBLÈME] Faster-Whisper CUDA non fonctionnel - Correction automatique...
-    if exist "%~dp0fix_cuda_complete.bat" (
-        call "%~dp0fix_cuda_complete.bat"
-    ) else (
-        echo [ERREUR] Script fix_cuda_complete.bat non trouvé
-        pause
-        goto menu
-    )
+    echo [PROBLÈME] Faster-Whisper CUDA non fonctionnel
+    echo [INFO] Utilisez l'option [I] pour corriger l'installation
+    pause
+    goto menu
 ) else (
     echo [OK] Faster-Whisper avec CUDA fonctionnel
 )
@@ -265,23 +386,16 @@ echo.
 echo  Adaptation vocale - Amélioration de la reconnaissance
 echo  ───────────────────────────────────────────────────────
 echo.
-echo  Cette fonction va vous aider à améliorer la reconnaissance
-echo  de votre voix pour les termes techniques.
+echo  [INFO] Cette fonctionnalité est en cours de développement.
+echo  [INFO] Les scripts d'adaptation vocale ont été déplacés vers temp_debug/
 echo.
-if exist "%~dp0scripts\voice_adaptation.bat" (
-    call "%~dp0scripts\voice_adaptation.bat"
-    if errorlevel 1 (
-        echo.
-        echo  [ERREUR] Problème lors de l'adaptation vocale
-        echo  [INFO] Vérifiez que PyAudio est installé
-        pause
-    )
-) else (
-    echo  [ERREUR] Script d'adaptation vocale non trouvé
-    echo  [INFO] Fichier manquant: scripts\voice_adaptation.bat
-    pause
-)
-goto end
+echo  Pour améliorer la reconnaissance vocale :
+echo  1. Utilisez le vocabulaire enrichi dans config.json
+echo  2. Parlez clairement et distinctement
+echo  3. Utilisez un microphone de qualité
+echo.
+pause
+goto menu
 
 :meeting
 cls
@@ -341,76 +455,37 @@ echo  ╔═══════════════════════�
 echo  ║                      INSTALLATION                                ║
 echo  ╠══════════════════════════════════════════════════════════════════╣
 echo  ║                                                                  ║
-echo  ║  [1] Installation de base (Voice-to-Text)                        ║
-echo  ║  [2] Installation Faster-Whisper (GPU)                           ║
-echo  ║  [3] Installation Meeting Assistant                              ║
-echo  ║  [4] Installation complète (tout)                                ║
-echo  ║  [5] Correction CUDA complète (cublas64_12.dll)                  ║
-echo  ║  [6] Test système complet                                        ║
+echo  ║  [1] Installation complète VTT (Recommandé)                      ║
+echo  ║      • Environnement virtuel isolé                               ║
+echo  ║      • Toutes les dépendances                                    ║
+echo  ║                                                                  ║
+echo  ║  [2] Correction isolation environnement                          ║
+echo  ║      • Résout problème NumPy/Numba                               ║
+echo  ║                                                                  ║
+echo  ║  [3] Vérification système                                        ║
+echo  ║      • Diagnostic complet                                        ║
 echo  ║                                                                  ║
 echo  ║  [R] Retour au menu principal                                    ║
 echo  ║                                                                  ║
 echo  ╚══════════════════════════════════════════════════════════════════╝
 echo.
-set /p ichoice="  Votre choix [1-6/R] : "
+set /p ichoice="  Votre choix [1-3/R] : "
 
 if "%ichoice%"=="1" (
-    if exist "%~dp0scripts\install.bat" (
-        call "%~dp0scripts\install.bat"
+    if exist "%~dp0scripts\install_vtt.bat" (
+        call "%~dp0scripts\install_vtt.bat"
     ) else (
-        echo [ERREUR] Script install.bat non trouvé
+        echo [ERREUR] Script install_vtt.bat non trouvé
     )
     pause
     goto install_menu
 )
-if "%ichoice%"=="2" (
-    if exist "%~dp0scripts\install_faster_whisper.bat" (
-        call "%~dp0scripts\install_faster_whisper.bat"
-    ) else (
-        echo [ERREUR] Script install_faster_whisper.bat non trouvé
-    )
-    pause
-    goto install_menu
-)
+if "%ichoice%"=="2" goto fix_isolation
 if "%ichoice%"=="3" (
-    if exist "%~dp0scripts\install_meeting_assistant.bat" (
-        call "%~dp0scripts\install_meeting_assistant.bat"
+    if exist "%~dp0scripts\install_vtt.bat" (
+        call "%~dp0scripts\install_vtt.bat"
     ) else (
-        echo [ERREUR] Script install_meeting_assistant.bat non trouvé
-    )
-    pause
-    goto install_menu
-)
-if "%ichoice%"=="4" (
-    echo.
-    echo  Installation complète en cours...
-    if exist "%~dp0scripts\install.bat" call "%~dp0scripts\install.bat"
-    if exist "%~dp0scripts\install_faster_whisper.bat" call "%~dp0scripts\install_faster_whisper.bat"
-    if exist "%~dp0scripts\install_meeting_assistant.bat" call "%~dp0scripts\install_meeting_assistant.bat"
-    if exist "%~dp0fix_cuda_complete.bat" call "%~dp0fix_cuda_complete.bat"
-    echo.
-    echo  [OK] Installation complète terminée.
-    pause
-    goto install_menu
-)
-if "%ichoice%"=="5" (
-    if exist "%~dp0fix_cuda_complete.bat" (
-        echo.
-        echo  Correction CUDA en cours (résout l'erreur cublas64_12.dll)...
-        call "%~dp0fix_cuda_complete.bat"
-    ) else (
-        echo [ERREUR] Script fix_cuda_complete.bat non trouvé
-    )
-    pause
-    goto install_menu
-)
-if "%ichoice%"=="6" (
-    if exist "%~dp0test_cuda_fix.bat" (
-        echo.
-        echo  Test système complet en cours...
-        call "%~dp0test_cuda_fix.bat"
-    ) else (
-        echo [ERREUR] Script test_cuda_fix.bat non trouvé
+        echo [ERREUR] Script install_vtt.bat non trouvé
     )
     pause
     goto install_menu
