@@ -1,0 +1,25 @@
+{
+  "status": "failed",
+  "results": {
+    "pytorch_available": true,
+    "cuda_available": true,
+    "faster_whisper_available": true,
+    "gpu_count": 1,
+    "cuda_version": "11.8",
+    "pytorch_version": "2.7.1+cu118"
+  },
+  "config_recommendation": {
+    "whisper": {
+      "engine": "faster-whisper",
+      "model": "medium",
+      "language": "fr",
+      "device": "cuda",
+      "compute_type": "float16",
+      "vad_filter": true
+    }
+  },
+  "next_steps": [
+    "Modifier config.json: \"device\": \"cuda\"",
+    "Tester avec voice-to-text-turbo"
+  ]
+}

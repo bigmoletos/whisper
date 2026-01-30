@@ -26,6 +26,9 @@ VTT (Voice-to-Text Tools) est une collection de 4 outils de transcription vocale
 
 ```bash
 projects\voice-to-text-basic\start.bat
+
+# Ou avec une configuration personnalisée
+python shared\src\main.py --config mon_config.json
 ```
 
 [Documentation complète →](projects/voice-to-text-basic/README.md)
@@ -43,6 +46,9 @@ projects\voice-to-text-basic\start.bat
 
 ```bash
 projects\voice-to-text-turbo\start.bat
+
+# Ou avec une configuration personnalisée
+python shared\src\main.py --config projects\voice-to-text-turbo\config.json
 ```
 
 [Documentation complète →](projects/voice-to-text-turbo/README.md)
@@ -145,6 +151,37 @@ whisper/
 
 ---
 
+## Options de ligne de commande
+
+Tous les outils VTT supportent maintenant les arguments de ligne de commande pour une utilisation avancée :
+
+```bash
+# Utiliser la configuration par défaut
+python shared\src\main.py
+
+# Spécifier un fichier de configuration personnalisé
+python shared\src\main.py --config mon_config.json
+python shared\src\main.py -c mon_config.json
+
+# Afficher l'aide
+python shared\src\main.py --help
+```
+
+### Exemples d'utilisation
+
+```bash
+# Voice-to-Text Basic avec configuration personnalisée
+python shared\src\main.py -c projects\voice-to-text-basic\config.json
+
+# Voice-to-Text Turbo avec configuration GPU
+python shared\src\main.py -c projects\voice-to-text-turbo\config.json
+
+# Configuration personnalisée pour tests
+python shared\src\main.py -c test_config.json
+```
+
+---
+
 ## Choisir le bon outil
 
 ### Je veux simplement dicter du texte
@@ -195,6 +232,7 @@ whisper/
 ## Support
 
 - Documentation détaillée dans chaque sous-projet
+- **Options de ligne de commande** : [docs/COMMAND_LINE_OPTIONS.md](docs/COMMAND_LINE_OPTIONS.md)
 - Guides d'installation : `docs/guides/`
 - Dépannage : voir DOCUMENTATION.md de chaque projet
 

@@ -30,6 +30,9 @@ scripts\install.bat
 ### Démarrage
 ```bash
 projects\voice-to-text-basic\start.bat
+
+# Ou avec une configuration personnalisée
+python shared\src\main.py --config ma_config.json
 ```
 
 ### Utilisation
@@ -82,6 +85,30 @@ projects\meeting-transcriber-pro\start.bat
 
 ---
 
+## Options avancées (ligne de commande)
+
+Pour une utilisation avancée, vous pouvez lancer les outils directement avec Python :
+
+```bash
+# Utilisation basique
+python shared\src\main.py
+
+# Avec configuration personnalisée
+python shared\src\main.py --config ma_config.json
+python shared\src\main.py -c ma_config.json
+
+# Aide
+python shared\src\main.py --help
+```
+
+### Cas d'usage
+
+- **Tests** : Tester différentes configurations rapidement
+- **Développement** : Déboguer avec des configurations spécifiques
+- **Automatisation** : Intégrer dans des scripts avec des configs dynamiques
+
+---
+
 ## Problèmes courants
 
 ### Python non trouvé
@@ -98,5 +125,6 @@ Activez "Stereo Mix" dans les paramètres son Windows
 ## Prochaines étapes
 
 - Consultez le README de chaque sous-projet pour la configuration avancée
+- **Options de ligne de commande** : [docs/COMMAND_LINE_OPTIONS.md](docs/COMMAND_LINE_OPTIONS.md)
 - Installez Ollama pour les résumés automatiques : [ollama.ai](https://ollama.ai)
 - Pour Voice-to-Text Turbo, installez CUDA pour l'accélération GPU

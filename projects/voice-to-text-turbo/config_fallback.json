@@ -1,0 +1,26 @@
+{
+    "whisper": {
+        "engine": "whisper",
+        "model": "medium",
+        "language": "fr",
+        "device": "cpu",
+        "initial_prompt": "Transcription technique professionnelle. Migration et IA : Angular, AngularJS, Angular CLI, TypeScript, JavaScript, migration, modernisation, refactoring, legacy, low-complexity, automation, formal verification, coq-of-js, Coq, OpenRewrite, strands-agent, Amazon CodeWhisperer, Microsoft Copilot. IDE et IA : Kiro, Kiro IDE, Cursor, VS Code, Visual Studio Code, GitHub Copilot, IntelliJ IDEA, WebStorm, PyCharm, MCP, Model Context Protocol, skills, capabilities, agents, autonomous agents. Gestion projet : Jira, Atlassian, ticket, issue, epic, story, sprint, Agile, Scrum, Kanban, npm, yarn, pnpm, package.json, Maven, Gradle, pip, requirements.txt. Langages : Java, Python, TypeScript, JavaScript, Spring Boot, Django, Flask, Node.js."
+    },
+    "audio": {
+        "sample_rate": 16000,
+        "channels": 1,
+        "chunk_duration": 3.0,
+        "silence_threshold": 0.01,
+        "silence_duration": 1.5
+    },
+    "hotkey": {
+        "modifiers": ["ctrl", "alt"],
+        "key": "7"
+    },
+    "logging": {
+        "level": "DEBUG",
+        "file": "voice_transcriber_fallback.log",
+        "max_size": "10MB",
+        "backup_count": 3
+    }
+}

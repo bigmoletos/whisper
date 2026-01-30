@@ -150,14 +150,34 @@ class WhisperSTTService:
             return self._default_config()
 
     def _default_config(self) -> dict:
-        """Retourne la configuration par défaut"""
+        """Retourne la configuration par défaut avec détection automatique des capacités"""
+        # Détection automatique de CUDA
+        device = "cpu"
+        compute_type = "int8"
+        engine = "whisper"
+        
+        try:
+            import torch
+            if torch.cuda.is_available():
+                device = "cuda"
+                compute_type = "float16"
+                if FASTER_WHISPER_AVAILABLE:
+                    engine = "faster-whisper"
+                print(f"[INFO] CUDA détecté - Configuration optimisée activée (device: {device}, engine: {engine})")
+            else:
+                print("[INFO] CUDA non disponible - Configuration CPU utilisée")
+        except ImportError:
+            print("[INFO] PyTorch non disponible - Configuration CPU de base")
+        
         return {
             "whisper": {
-                "engine": "whisper",  # Whisper standard (compatible partout)
-                "model": "base",
+                "engine": engine,
+                "model": "medium",  # Compromis qualité/vitesse selon standards VTT
                 "language": "fr",
-                "device": "cpu",
-                "compute_type": "int8"
+                "device": device,
+                "compute_type": compute_type,
+                "vad_filter": True if device == "cuda" else False,
+                "initial_prompt": "Transcription professionnelle en français avec vocabulaire technique informatique, noms propres corrects et ponctuation appropriée."
             },
             "audio": {
                 "sample_rate": 16000,
@@ -483,9 +503,27 @@ class WhisperSTTService:
 
 def main():
     """Point d'entrée principal"""
+    import argparse
+    
+    # Parser les arguments de ligne de commande
+    parser = argparse.ArgumentParser(description='Service de transcription vocale VTT')
+    parser.add_argument('--config', '-c', 
+                       help='Chemin vers le fichier de configuration JSON',
+                       default=None)
+    
+    args = parser.parse_args()
+    
     # Déterminer le chemin du fichier de configuration
-    script_dir = Path(__file__).parent.parent
-    config_path = script_dir / "config.json"
+    if args.config and Path(args.config).exists():
+        config_path = Path(args.config)
+        print(f"[INFO] Utilisation de la configuration: {config_path}")
+    else:
+        # Fallback vers la configuration par défaut
+        script_dir = Path(__file__).parent
+        config_path = script_dir / "config.json"
+        if not config_path.exists():
+            print(f"[WARNING] Configuration par défaut non trouvée: {config_path}")
+            print("[INFO] Utilisation des valeurs par défaut")
 
     # Créer et démarrer le service
     service = WhisperSTTService(config_path=str(config_path))

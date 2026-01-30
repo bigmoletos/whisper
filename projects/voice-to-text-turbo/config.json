@@ -5,6 +5,14 @@
         "language": "fr",
         "device": "cuda",
         "compute_type": "float16",
+        "vad_filter": true,
+        "vad_parameters": {
+            "threshold": 0.5,
+            "min_speech_duration_ms": 250,
+            "max_speech_duration_s": 30,
+            "min_silence_duration_ms": 500,
+            "speech_pad_ms": 400
+        },
         "initial_prompt": "Transcription technique professionnelle. Migration et IA : Angular, AngularJS, Angular CLI, TypeScript, JavaScript, migration, modernisation, refactoring, legacy, low-complexity, automation, formal verification, coq-of-js, Coq, OpenRewrite, strands-agent, Amazon CodeWhisperer, Microsoft Copilot. IDE et IA : Kiro, Kiro IDE, Cursor, VS Code, Visual Studio Code, GitHub Copilot, IntelliJ IDEA, WebStorm, PyCharm, MCP, Model Context Protocol, skills, capabilities, agents, autonomous agents. Gestion projet : Jira, Atlassian, ticket, issue, epic, story, sprint, Agile, Scrum, Kanban, npm, yarn, pnpm, package.json, Maven, Gradle, pip, requirements.txt. Langages : Java, Python, TypeScript, JavaScript, Spring Boot, Django, Flask, Node.js. Vocabulaire technique : Spring Boot, Spring Cloud, Kubernetes, Docker, Kafka, Helm, ArgoCD, Prometheus, Grafana, microservices, Hibernate, JPA, PostgreSQL, MongoDB, Redis, Maven, Gradle, Jenkins, GitLab, Terraform, AWS. Git : GitHub, Bitbucket, commit, push, pull, merge, branch, rebase, cherry-pick, stash, fork, clone, fetch, tag, release. Tests et qualité : JUnit, Mockito, Checkmarx, SonarQube, SonarCloud, Playwright, Selenium, Cypress, TestNG, Cucumber, JaCoCo, SpotBugs, Checkstyle, PMD, ESLint, Prettier, QA, quality assurance, automated testing. Formats de fichiers : point MD, point CSV, point JSON, point YAML, point XML, point BAT, point SH, point PS1, point PY, point JAVA, point TS, point JS, point HTML, point CSS, point SQL, point TXT, point LOG, point ENV, point PROPERTIES, point CONF, point INI, point TOML."
     },
     "audio": {

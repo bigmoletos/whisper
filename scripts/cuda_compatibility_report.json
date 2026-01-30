@@ -1,0 +1,36 @@
+{
+  "timestamp": "1769700898.2735052",
+  "driver": {
+    "available": true,
+    "version": "573.76"
+  },
+  "gpus": [
+    {
+      "name": "NVIDIA RTX A1000 6GB Laptop GPU",
+      "compute_capability": "8.6",
+      "cuda_compatible": true
+    }
+  ],
+  "python": {
+    "python_version": "3.11.4 (tags/v3.11.4:d2340ef, Jun  7 2023, 05:45:37) [MSC v.1934 64 bit (AMD64)]",
+    "platform": "Windows-10-10.0.26100-SP0",
+    "architecture": "64bit",
+    "pip_available": true,
+    "conda_available": false
+  },
+  "cuda": {
+    "system_cuda": false,
+    "pytorch_cuda": true,
+    "faster_whisper": true,
+    "pytorch_version": "2.7.1+cu118",
+    "cuda_version": "11.8",
+    "gpu_count": 1
+  },
+  "recommendations": [
+    {
+      "type": "success",
+      "message": "CUDA déjà configuré et fonctionnel",
+      "action": "Modifiez config.json pour utiliser \"device\": \"cuda\""
+    }
+  ]
+}

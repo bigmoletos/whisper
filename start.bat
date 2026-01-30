@@ -2,6 +2,16 @@
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
+:: Vérification rapide et silencieuse du système
+py -3.12 scripts\quick_check.py >nul 2>&1
+if errorlevel 1 (
+    echo.
+    echo  [INFO] Première utilisation ou problème détecté
+    echo  [INFO] Utilisez [U] pour vérification système complète
+    echo.
+    timeout /t 3 >nul
+)
+
 :menu
 cls
 echo.
@@ -15,17 +25,16 @@ echo  ║                                                                  ║
 echo  ║  TRANSCRIPTION VOCALE (dictée)                                   ║
 echo  ║  ─────────────────────────────                                   ║
 echo  ║                                                                  ║
-echo  ║  [1] Voice-to-Text BASIC                                         ║
-echo  ║      Transcription simple avec Whisper standard                  ║
-echo  ║      • Fonctionne sur CPU (pas de GPU requis)                    ║
-echo  ║      • Idéal pour : dictée vocale, notes rapides                 ║
+echo  ║  [1] Voice-to-Text TURBO (Lancement Direct)                     ║
+echo  ║      Lancement direct - Version recommandée                      ║
+echo  ║      • Accélération GPU avec Faster-Whisper                      ║
+echo  ║      • Modèle large-v3 haute qualité                             ║
 echo  ║      • Raccourci : Ctrl+Alt+7 (toggle enregistrement)           ║
 echo  ║                                                                  ║
-echo  ║  [2] Voice-to-Text TURBO                                         ║
-echo  ║      Transcription rapide avec Faster-Whisper                    ║
-echo  ║      • Accélération GPU (4x plus rapide)                         ║
-echo  ║      • Idéal pour : transcription fluide en temps réel           ║
-echo  ║      • Requiert : GPU NVIDIA recommandé (fonctionne aussi CPU)   ║
+echo  ║  [2] Voice-to-Text TURBO (Mode Fallback)                        ║
+echo  ║      Version de secours avec Whisper standard                    ║
+echo  ║      • Fonctionne sur CPU si problèmes GPU                       ║
+echo  ║      • Plus lent mais plus compatible                             ║
 echo  ║                                                                  ║
 echo  ╠══════════════════════════════════════════════════════════════════╣
 echo  ║                                                                  ║
@@ -47,20 +56,38 @@ echo  ║      • Requiert : Token Hugging Face (gratuit)                   ║
 echo  ║                                                                  ║
 echo  ╠══════════════════════════════════════════════════════════════════╣
 echo  ║                                                                  ║
+echo  ║  PERSONNALISATION                                                ║
+echo  ║  ────────────────                                                ║
+echo  ║                                                                  ║
+echo  ║  [V] Adaptation vocale                                           ║
+echo  ║      Améliorer la reconnaissance de votre voix                   ║
+echo  ║      • Entraînement sur termes techniques                        ║
+echo  ║      • Test de qualité vocale                                    ║
+echo  ║      • Optimisation personnalisée                                ║
+echo  ║                                                                  ║
+echo  ╠══════════════════════════════════════════════════════════════════╣
+echo  ║                                                                  ║
+echo  ║  [U] Vérification système complète                               ║
 echo  ║  [I] Installation des dépendances                                ║
 echo  ║  [D] Documentation                                               ║
 echo  ║  [Q] Quitter                                                     ║
 echo  ║                                                                  ║
 echo  ╚══════════════════════════════════════════════════════════════════╝
 echo.
-set /p choice="  Votre choix [1-4/I/D/Q] : "
+set /p choice="  Votre choix [1-4/V/U/I/D/Q] : "
 
-if /i "%choice%"=="1" goto voice_basic
-if /i "%choice%"=="2" goto voice_turbo
+if /i "%choice%"=="1" goto voice_turbo_direct
+if /i "%choice%"=="2" goto voice_turbo_fallback
 if /i "%choice%"=="3" goto meeting
 if /i "%choice%"=="4" goto meeting_pro
+if /i "%choice%"=="V" goto voice_adaptation
+if /i "%choice%"=="v" goto voice_adaptation
+if /i "%choice%"=="U" goto system_check
+if /i "%choice%"=="u" goto system_check
 if /i "%choice%"=="I" goto install_menu
+if /i "%choice%"=="i" goto install_menu
 if /i "%choice%"=="D" goto documentation
+if /i "%choice%"=="d" goto documentation
 if /i "%choice%"=="Q" goto quit
 if /i "%choice%"=="q" goto quit
 
@@ -69,22 +96,191 @@ echo  [!] Choix invalide. Appuyez sur une touche...
 pause >nul
 goto menu
 
-:voice_basic
+:voice_turbo_direct
 cls
 echo.
-echo  Lancement de Voice-to-Text BASIC...
-echo  ───────────────────────────────────
+echo  Voice-to-Text TURBO (Lancement Direct)...
+echo  ─────────────────────────────────────────
 echo.
-call "%~dp0projects\voice-to-text-basic\start.bat"
+echo  Lancement direct de Voice-to-Text Turbo avec Faster-Whisper
+echo  Configuration optimisée : CUDA + large-v3 + vocabulaire technique
+echo.
+if exist "%~dp0launch_turbo_direct.bat" (
+    call "%~dp0launch_turbo_direct.bat"
+) else (
+    echo  [INFO] Lancement direct intégré...
+    echo.
+    cd /d "%~dp0"
+    py -3.12 shared\src\main.py --config projects\voice-to-text-turbo\config.json
+    if errorlevel 1 (
+        echo.
+        echo  [ERREUR] Le programme s'est terminé avec une erreur
+        pause
+    )
+)
 goto end
 
-:voice_turbo
+:voice_turbo_fallback
 cls
 echo.
-echo  Lancement de Voice-to-Text TURBO...
-echo  ───────────────────────────────────
+echo  Voice-to-Text TURBO (Mode Fallback)...
+echo  ──────────────────────────────────────
 echo.
-call "%~dp0projects\voice-to-text-turbo\start.bat"
+echo  Cette version utilise Whisper standard au lieu de Faster-Whisper
+echo  pour éviter les problèmes de compatibilité.
+echo.
+if exist "%~dp0projects\voice-to-text-turbo\start_fallback.bat" (
+    call "%~dp0projects\voice-to-text-turbo\start_fallback.bat"
+    if errorlevel 1 (
+        echo.
+        echo  [ERREUR] Le programme s'est terminé avec une erreur
+        echo  [INFO] Vérifiez voice_transcriber_fallback.log
+        pause
+    )
+) else (
+    echo  [ERREUR] Script start_fallback.bat non trouvé
+    pause
+)
+goto end
+
+:system_check
+cls
+echo.
+echo  ╔══════════════════════════════════════════════════════════════════╗
+echo  ║                    VTT - VÉRIFICATION SYSTÈME                    ║
+echo  ║                 Diagnostic complet des dépendances               ║
+echo  ╚══════════════════════════════════════════════════════════════════╝
+echo.
+
+:: Vérifier Python 3.12
+echo [1/6] Vérification Python 3.12...
+py -3.12 --version >nul 2>&1
+if errorlevel 1 (
+    echo [ERREUR] Python 3.12 requis mais non trouvé
+    echo [INFO] Installez Python 3.12 depuis python.org
+    pause
+    goto menu
+)
+echo [OK] Python 3.12 détecté
+
+:: Vérifier les modules Python de base
+echo [2/6] Vérification modules Python de base...
+py -3.12 -c "import json, logging, pathlib, numpy, sounddevice, pyautogui, keyboard, pyperclip" >nul 2>&1
+if errorlevel 1 (
+    echo [MANQUANT] Modules de base manquants - Installation automatique...
+    if exist "%~dp0scripts\install.bat" (
+        call "%~dp0scripts\install.bat"
+    ) else (
+        echo [ERREUR] Script install.bat non trouvé
+        pause
+        goto menu
+    )
+) else (
+    echo [OK] Modules de base présents
+)
+
+:: Vérifier PyTorch et CUDA
+echo [3/6] Vérification PyTorch et CUDA...
+py -3.12 -c "import torch; print('CUDA:', torch.cuda.is_available())" >nul 2>&1
+if errorlevel 1 (
+    echo [MANQUANT] PyTorch manquant - Installation automatique...
+    if exist "%~dp0fix_cuda_complete.bat" (
+        call "%~dp0fix_cuda_complete.bat"
+    ) else (
+        echo [ERREUR] Script fix_cuda_complete.bat non trouvé
+        pause
+        goto menu
+    )
+) else (
+    :: Vérifier si CUDA fonctionne correctement
+    py -3.12 -c "import torch; assert torch.cuda.is_available()" >nul 2>&1
+    if errorlevel 1 (
+        echo [PROBLÈME] CUDA détecté mais non fonctionnel - Correction automatique...
+        if exist "%~dp0fix_cuda_complete.bat" (
+            call "%~dp0fix_cuda_complete.bat"
+        )
+    ) else (
+        echo [OK] PyTorch avec CUDA fonctionnel
+    )
+)
+
+:: Vérifier Faster-Whisper avec CUDA
+echo [4/6] Vérification Faster-Whisper...
+py -3.12 -c "import faster_whisper; faster_whisper.WhisperModel('tiny', device='cuda', compute_type='float16')" >nul 2>&1
+if errorlevel 1 (
+    echo [PROBLÈME] Faster-Whisper CUDA non fonctionnel - Correction automatique...
+    if exist "%~dp0fix_cuda_complete.bat" (
+        call "%~dp0fix_cuda_complete.bat"
+    ) else (
+        echo [ERREUR] Script fix_cuda_complete.bat non trouvé
+        pause
+        goto menu
+    )
+) else (
+    echo [OK] Faster-Whisper avec CUDA fonctionnel
+)
+
+:: Vérifier les fichiers de configuration
+echo [5/6] Vérification configuration...
+if not exist "%~dp0projects\voice-to-text-turbo\config.json" (
+    echo [ERREUR] Configuration Voice-to-Text Turbo manquante
+    pause
+    goto menu
+)
+if not exist "%~dp0shared\src\main.py" (
+    echo [ERREUR] Fichier principal main.py manquant
+    pause
+    goto menu
+)
+echo [OK] Configuration présente
+
+:: Test rapide du système complet
+echo [6/6] Test système complet...
+timeout /t 1 >nul
+py -3.12 -c "import sys, os; sys.path.insert(0, 'shared'); from src.faster_whisper_transcriber import FasterWhisperTranscriber; transcriber = FasterWhisperTranscriber('tiny', 'fr', 'cuda', 'float16'); transcriber.load_model(); print('Système VTT prêt !')" >nul 2>&1
+if errorlevel 1 (
+    echo [PROBLÈME] Test système échoué - Vérification des logs...
+    echo [INFO] Consultez voice_transcriber_turbo.log pour plus de détails
+    pause
+    goto menu
+) else (
+    echo [OK] Système VTT entièrement fonctionnel
+)
+
+echo.
+echo  ╔══════════════════════════════════════════════════════════════════╗
+echo  ║                    VÉRIFICATIONS TERMINÉES                       ║
+echo  ║                   Système prêt à l'utilisation                   ║
+echo  ╚══════════════════════════════════════════════════════════════════╝
+echo.
+echo  [SUCCESS] Toutes les vérifications sont terminées !
+echo  [INFO] Vous pouvez maintenant utiliser Voice-to-Text Turbo
+echo.
+pause
+goto menu
+
+:voice_adaptation
+cls
+echo.
+echo  Adaptation vocale - Amélioration de la reconnaissance
+echo  ───────────────────────────────────────────────────────
+echo.
+echo  Cette fonction va vous aider à améliorer la reconnaissance
+echo  de votre voix pour les termes techniques.
+echo.
+if exist "%~dp0scripts\voice_adaptation.bat" (
+    call "%~dp0scripts\voice_adaptation.bat"
+    if errorlevel 1 (
+        echo.
+        echo  [ERREUR] Problème lors de l'adaptation vocale
+        echo  [INFO] Vérifiez que PyAudio est installé
+        pause
+    )
+) else (
+    echo  [ERREUR] Script d'adaptation vocale non trouvé
+    echo  [INFO] Fichier manquant: scripts\voice_adaptation.bat
+    pause
+)
 goto end
 
 :meeting
@@ -93,7 +289,17 @@ echo.
 echo  Lancement de Meeting Transcriber...
 echo  ───────────────────────────────────
 echo.
-call "%~dp0projects\meeting-transcriber\start.bat"
+if exist "%~dp0projects\meeting-transcriber\start.bat" (
+    call "%~dp0projects\meeting-transcriber\start.bat"
+    if errorlevel 1 (
+        echo.
+        echo  [ERREUR] Le programme s'est terminé avec une erreur
+        pause
+    )
+) else (
+    echo  [ERREUR] Fichier start.bat non trouvé dans meeting-transcriber
+    pause
+)
 goto end
 
 :meeting_pro
@@ -115,7 +321,17 @@ if not defined TOKEN_HF (
     )
 )
 echo.
-call "%~dp0projects\meeting-transcriber-pro\start.bat"
+if exist "%~dp0projects\meeting-transcriber-pro\start.bat" (
+    call "%~dp0projects\meeting-transcriber-pro\start.bat"
+    if errorlevel 1 (
+        echo.
+        echo  [ERREUR] Le programme s'est terminé avec une erreur
+        pause
+    )
+) else (
+    echo  [ERREUR] Fichier start.bat non trouvé dans meeting-transcriber-pro
+    pause
+)
 goto end
 
 :install_menu
@@ -129,36 +345,73 @@ echo  ║  [1] Installation de base (Voice-to-Text)                        ║
 echo  ║  [2] Installation Faster-Whisper (GPU)                           ║
 echo  ║  [3] Installation Meeting Assistant                              ║
 echo  ║  [4] Installation complète (tout)                                ║
+echo  ║  [5] Correction CUDA complète (cublas64_12.dll)                  ║
+echo  ║  [6] Test système complet                                        ║
 echo  ║                                                                  ║
 echo  ║  [R] Retour au menu principal                                    ║
 echo  ║                                                                  ║
 echo  ╚══════════════════════════════════════════════════════════════════╝
 echo.
-set /p ichoice="  Votre choix [1-4/R] : "
+set /p ichoice="  Votre choix [1-6/R] : "
 
 if "%ichoice%"=="1" (
-    call "%~dp0scripts\install.bat"
+    if exist "%~dp0scripts\install.bat" (
+        call "%~dp0scripts\install.bat"
+    ) else (
+        echo [ERREUR] Script install.bat non trouvé
+    )
     pause
     goto install_menu
 )
 if "%ichoice%"=="2" (
-    call "%~dp0scripts\install_faster_whisper.bat"
+    if exist "%~dp0scripts\install_faster_whisper.bat" (
+        call "%~dp0scripts\install_faster_whisper.bat"
+    ) else (
+        echo [ERREUR] Script install_faster_whisper.bat non trouvé
+    )
     pause
     goto install_menu
 )
 if "%ichoice%"=="3" (
-    call "%~dp0scripts\install_meeting_assistant.bat"
+    if exist "%~dp0scripts\install_meeting_assistant.bat" (
+        call "%~dp0scripts\install_meeting_assistant.bat"
+    ) else (
+        echo [ERREUR] Script install_meeting_assistant.bat non trouvé
+    )
     pause
     goto install_menu
 )
 if "%ichoice%"=="4" (
     echo.
     echo  Installation complète en cours...
-    call "%~dp0scripts\install.bat"
-    call "%~dp0scripts\install_faster_whisper.bat"
-    call "%~dp0scripts\install_meeting_assistant.bat"
+    if exist "%~dp0scripts\install.bat" call "%~dp0scripts\install.bat"
+    if exist "%~dp0scripts\install_faster_whisper.bat" call "%~dp0scripts\install_faster_whisper.bat"
+    if exist "%~dp0scripts\install_meeting_assistant.bat" call "%~dp0scripts\install_meeting_assistant.bat"
+    if exist "%~dp0fix_cuda_complete.bat" call "%~dp0fix_cuda_complete.bat"
     echo.
     echo  [OK] Installation complète terminée.
+    pause
+    goto install_menu
+)
+if "%ichoice%"=="5" (
+    if exist "%~dp0fix_cuda_complete.bat" (
+        echo.
+        echo  Correction CUDA en cours (résout l'erreur cublas64_12.dll)...
+        call "%~dp0fix_cuda_complete.bat"
+    ) else (
+        echo [ERREUR] Script fix_cuda_complete.bat non trouvé
+    )
+    pause
+    goto install_menu
+)
+if "%ichoice%"=="6" (
+    if exist "%~dp0test_cuda_fix.bat" (
+        echo.
+        echo  Test système complet en cours...
+        call "%~dp0test_cuda_fix.bat"
+    ) else (
+        echo [ERREUR] Script test_cuda_fix.bat non trouvé
+    )
     pause
     goto install_menu
 )
@@ -176,6 +429,7 @@ echo  ║  Fichiers disponibles :                                          ║
 echo  ║                                                                  ║
 echo  ║  • README.md         - Vue d'ensemble du projet                  ║
 echo  ║  • QUICKSTART.md     - Démarrage rapide                          ║
+echo  ║  • MIGRATION_PIPX.md - Guide migration pipx                      ║
 echo  ║                                                                  ║
 echo  ║  Documentation par projet :                                      ║
 echo  ║  • projects\voice-to-text-basic\README.md                        ║
@@ -187,16 +441,36 @@ echo  ╚═══════════════════════�
 echo.
 echo  [1] Ouvrir README.md
 echo  [2] Ouvrir QUICKSTART.md
+echo  [3] Ouvrir MIGRATION_PIPX.md
 echo  [R] Retour au menu principal
 echo.
-set /p dchoice="  Votre choix [1-2/R] : "
+set /p dchoice="  Votre choix [1-3/R] : "
 
 if "%dchoice%"=="1" (
-    start notepad "%~dp0README.md"
+    if exist "%~dp0README.md" (
+        start notepad "%~dp0README.md"
+    ) else (
+        echo [ERREUR] README.md non trouvé
+        pause
+    )
     goto documentation
 )
 if "%dchoice%"=="2" (
-    start notepad "%~dp0QUICKSTART.md"
+    if exist "%~dp0QUICKSTART.md" (
+        start notepad "%~dp0QUICKSTART.md"
+    ) else (
+        echo [ERREUR] QUICKSTART.md non trouvé
+        pause
+    )
+    goto documentation
+)
+if "%dchoice%"=="3" (
+    if exist "%~dp0MIGRATION_PIPX.md" (
+        start notepad "%~dp0MIGRATION_PIPX.md"
+    ) else (
+        echo [ERREUR] MIGRATION_PIPX.md non trouvé
+        pause
+    )
     goto documentation
 )
 if /i "%dchoice%"=="R" goto menu

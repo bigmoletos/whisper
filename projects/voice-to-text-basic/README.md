@@ -36,6 +36,19 @@ scripts\install.bat
 3. Le texte transcrit est automatiquement collé à la position du curseur
 4. Appuyez sur `Ctrl+Shift+Q` pour quitter
 
+### Utilisation avancée
+
+Vous pouvez également lancer l'outil directement avec Python et spécifier une configuration personnalisée :
+
+```bash
+# Utiliser la configuration par défaut
+python ..\..\shared\src\main.py
+
+# Utiliser une configuration personnalisée
+python ..\..\shared\src\main.py --config ma_config.json
+python ..\..\shared\src\main.py -c ma_config.json
+```
+
 ## Configuration
 
 Modifiez `config.json` pour personnaliser :

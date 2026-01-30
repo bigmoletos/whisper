@@ -1,7 +1,9 @@
 # Whisper et traitement audio
 openai-whisper>=20231117
 faster-whisper>=0.10.0  # Optionnel - nécessite Rust pour l'installation
-torch>=2.0.0
+torch>=2.0.0+cu118 --index-url https://download.pytorch.org/whl/cu118
+torchvision>=0.15.0+cu118 --index-url https://download.pytorch.org/whl/cu118
+torchaudio>=2.0.0+cu118 --index-url https://download.pytorch.org/whl/cu118
 numpy>=1.24.0
 sounddevice>=0.4.6
 scipy>=1.10.0
