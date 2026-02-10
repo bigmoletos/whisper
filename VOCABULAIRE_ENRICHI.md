@@ -129,6 +129,39 @@
 
 ### 📄 Formats de fichiers (50+ extensions)
 
+### 🕸️ Bases de données graphes (45+ termes)
+
+#### Bases de données
+
+- **Memgraph** : Memgraph, MAGE, GQLAlchemy, Bolt protocol
+- **Neo4j** : Neo4j, Neo4j Desktop, Neo4j Browser, Neo4j Aura
+- **Autres** : ArangoDB, Amazon Neptune, JanusGraph, TigerGraph, OrientDB, Dgraph
+
+#### Langages de requêtes graphes
+
+- **Cypher** : Cypher, openCypher (langage de Neo4j et Memgraph)
+- **Gremlin** : Gremlin, Apache TinkerPop (traversal framework)
+- **SPARQL** : SPARQL, RDF, triple store (web sémantique)
+- **GraphQL** : GraphQL (API, pas base graphe mais souvent associé)
+
+#### Concepts graphes
+
+- **Structure** : noeud, node, edge, arête, relation, vertex, vertices
+- **Modèles** : property graph, graphe de propriétés, knowledge graph, graphe de connaissances
+- **Opérations** : traversal, parcours de graphe, adjacency, shortest path, plus court chemin
+
+#### Algorithmes graphes
+
+- **Centralité** : PageRank, centrality, betweenness, closeness
+- **Communautés** : community detection, clustering coefficient, connected components, composantes connexes
+- **IA** : graph neural network, GNN, graph embedding, node embedding
+
+#### Bibliothèques Python
+
+- NetworkX, igraph, graph-tool, PyG (PyTorch Geometric)
+
+### 📄 Formats de fichiers (50+ extensions) (suite)
+
 #### Configuration
 - `.json`, `.yaml`, `.yml`, `.toml`, `.ini`, `.conf`
 - `.properties`, `.env`, `.dotenv`
@@ -313,8 +346,9 @@ Le build.gradle configure Gradle."
 | **Cloud & Infra** | 25+ | AWS, Azure, Terraform, Ansible, Prometheus |
 | **Bases de données** | 10+ | PostgreSQL, MongoDB, Redis, MySQL, Oracle |
 | **Messaging** | 5+ | Kafka, RabbitMQ, ActiveMQ |
+| **Bases graphes** | 45+ | Memgraph, Neo4j, ArangoDB, Neptune, Cypher, Gremlin |
 
-**TOTAL : 300+ termes techniques** couverts dans vos configurations !
+**TOTAL : 350+ termes techniques** couverts dans vos configurations !
 
 ---
 

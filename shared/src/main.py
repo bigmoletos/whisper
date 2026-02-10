@@ -3,6 +3,13 @@ Service principal Whisper STT Global pour Windows
 Point d'entrée de l'application
 """
 
+# IMPORTANT : Définir les variables d'environnement MKL AVANT tous les imports
+# pour éviter les problèmes d'allocation mémoire quand d'autres applications
+# (Neo4j, Memgraph, etc.) utilisent beaucoup de RAM
+import os
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+
 import json
 import logging
 import sys

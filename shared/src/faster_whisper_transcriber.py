@@ -3,6 +3,12 @@ Module de transcription audio utilisant Faster-Whisper
 Version optimisée et plus rapide de Whisper
 """
 
+import os
+# Limiter les threads MKL pour éviter les problèmes d'allocation mémoire
+# quand d'autres applications (Neo4j, Memgraph, etc.) utilisent beaucoup de RAM
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+
 try:
     from faster_whisper import WhisperModel
     FASTER_WHISPER_IMPORTED = True
@@ -70,7 +76,9 @@ class FasterWhisperTranscriber:
             self.model = WhisperModel(
                 self.model_name,
                 device=self.device,
-                compute_type=self.compute_type
+                compute_type=self.compute_type,
+                cpu_threads=1,  # Limite les threads pour réduire l'usage mémoire RAM
+                num_workers=1   # Réduit les workers pour économiser la RAM
             )
 
             logger.info(f"Modèle '{self.model_name}' chargé avec succès")
