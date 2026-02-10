@@ -29,6 +29,7 @@ from src.whisper_transcriber import WhisperTranscriber
 from src.text_injector import TextInjector
 from src.keyboard_hotkey import HotkeyManager
 from src.text_corrector import load_corrector_from_config
+from src.word_replacements import apply_replacements
 
 # Import des notifications
 try:
@@ -335,6 +336,7 @@ class WhisperSTTService:
             self.logger.info("Démarrage de l'enregistrement (appuyez à nouveau pour arrêter)")
             self._start_recording()
 
+
     def _start_recording(self) -> None:
         """Démarre l'enregistrement audio"""
         try:
@@ -438,6 +440,11 @@ class WhisperSTTService:
             self.logger.info("Transcription en cours...")
             text = self.transcriber.transcribe(audio_data, sample_rate=self.audio_capture.sample_rate)
             self.logger.info(f"Texte transcrit: '{text}' (longueur: {len(text) if text else 0})")
+
+            # Post-processing : correction des erreurs phonétiques récurrentes de Whisper
+            if text:
+                extra = self.config.get("word_replacements", {})
+                text = apply_replacements(text, extra=extra if extra else None)
 
             # Correction orthographique et grammaticale (post-traitement)
             if text and self.text_corrector:
