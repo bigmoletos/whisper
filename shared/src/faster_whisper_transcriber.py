@@ -9,6 +9,24 @@ import os
 os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
 
+# Charger les DLLs CUDA depuis le venv (nvidia-cublas-cu12, nvidia-cudnn-cu12)
+# DOIT être fait avant l'import de faster_whisper/ctranslate2
+try:
+    import site as _site
+    _sp_dirs = _site.getsitepackages() + [_site.getusersitepackages()]
+    _dll_paths = []
+    for _sp in _sp_dirs:
+        for _pkg in ('cublas', 'cudnn'):
+            _bin = os.path.join(_sp, 'nvidia', _pkg, 'bin')
+            if os.path.isdir(_bin):
+                os.add_dll_directory(_bin)
+                _dll_paths.append(_bin)
+    # Ajouter aussi au PATH système pour que ctranslate2 trouve les DLLs
+    if _dll_paths:
+        os.environ['PATH'] = os.pathsep.join(_dll_paths) + os.pathsep + os.environ.get('PATH', '')
+except Exception:
+    pass
+
 try:
     from faster_whisper import WhisperModel
     FASTER_WHISPER_IMPORTED = True

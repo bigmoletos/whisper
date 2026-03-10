@@ -10,6 +10,22 @@ import os
 os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
 
+# Ajouter les DLLs CUDA (nvidia-cublas-cu12, nvidia-cudnn-cu12) au PATH Windows
+# nécessaire quand CUDA Toolkit n'est pas installé système (sans droits admin)
+try:
+    import site as _site
+    _dll_paths = []
+    for _sp in _site.getsitepackages() + [_site.getusersitepackages()]:
+        for _pkg in ('cublas', 'cudnn'):
+            _bin = os.path.join(_sp, 'nvidia', _pkg, 'bin')
+            if os.path.isdir(_bin):
+                os.add_dll_directory(_bin)
+                _dll_paths.append(_bin)
+    if _dll_paths:
+        os.environ['PATH'] = os.pathsep.join(_dll_paths) + os.pathsep + os.environ.get('PATH', '')
+except Exception:
+    pass
+
 import json
 import logging
 import sys
