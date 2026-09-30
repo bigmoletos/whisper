@@ -9,19 +9,29 @@ import os
 os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
 
-# Charger les DLLs CUDA depuis le venv (nvidia-cublas-cu12, nvidia-cudnn-cu12)
-# DOIT être fait avant l'import de faster_whisper/ctranslate2
+# Charger les DLLs CUDA depuis le venv (nvidia-cublas-cu12, nvidia-cudnn-cu12,
+# nvidia-cuda-runtime-cu12). DOIT être fait avant l'import de faster_whisper/ctranslate2.
+# On scanne TOUS les sous-paquets nvidia/*/bin : cublas dépend de cudart (cuda_runtime),
+# donc il faut aussi cuda_runtime sur le PATH, sinon "cublas64_12.dll cannot be loaded".
+# Le PATH (pas seulement add_dll_directory) est requis pour que le loader Windows
+# résolve la chaîne de dépendances inter-DLL de ctranslate2.
 try:
     import site as _site
     _sp_dirs = _site.getsitepackages() + [_site.getusersitepackages()]
     _dll_paths = []
     for _sp in _sp_dirs:
-        for _pkg in ('cublas', 'cudnn'):
-            _bin = os.path.join(_sp, 'nvidia', _pkg, 'bin')
+        _nvidia = os.path.join(_sp, 'nvidia')
+        if not os.path.isdir(_nvidia):
+            continue
+        for _pkg in os.listdir(_nvidia):
+            _bin = os.path.join(_nvidia, _pkg, 'bin')
             if os.path.isdir(_bin):
-                os.add_dll_directory(_bin)
+                try:
+                    os.add_dll_directory(_bin)
+                except (OSError, FileNotFoundError):
+                    pass
                 _dll_paths.append(_bin)
-    # Ajouter aussi au PATH système pour que ctranslate2 trouve les DLLs
+    # Ajouter au PATH système pour que ctranslate2 trouve les DLLs et leurs dépendances
     if _dll_paths:
         os.environ['PATH'] = os.pathsep.join(_dll_paths) + os.pathsep + os.environ.get('PATH', '')
 except Exception:

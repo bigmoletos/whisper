@@ -189,18 +189,28 @@ class WhisperSTTService:
         compute_type = "int8"
         engine = "whisper"
         
+        # Détection CUDA via CTranslate2 (moteur réellement utilisé par Faster-Whisper),
+        # PAS via torch.cuda : le venv peut avoir un torch CPU-only alors que CTranslate2
+        # dispose de ses propres libs CUDA (cublas/cudnn) et fonctionne sur GPU.
+        cuda_ok = False
         try:
-            import torch
-            if torch.cuda.is_available():
-                device = "cuda"
-                compute_type = "float16"
-                if FASTER_WHISPER_AVAILABLE:
-                    engine = "faster-whisper"
-                print(f"[INFO] CUDA détecté - Configuration optimisée activée (device: {device}, engine: {engine})")
-            else:
-                print("[INFO] CUDA non disponible - Configuration CPU utilisée")
-        except ImportError:
-            print("[INFO] PyTorch non disponible - Configuration CPU de base")
+            import ctranslate2
+            cuda_ok = ctranslate2.get_cuda_device_count() > 0
+        except Exception:
+            try:
+                import torch
+                cuda_ok = torch.cuda.is_available()
+            except ImportError:
+                print("[INFO] Ni CTranslate2 ni PyTorch disponibles - Configuration CPU de base")
+
+        if cuda_ok:
+            device = "cuda"
+            compute_type = "float16"
+            if FASTER_WHISPER_AVAILABLE:
+                engine = "faster-whisper"
+            print(f"[INFO] CUDA détecté - Configuration optimisée activée (device: {device}, engine: {engine})")
+        else:
+            print("[INFO] CUDA non disponible - Configuration CPU utilisée")
         
         return {
             "whisper": {
